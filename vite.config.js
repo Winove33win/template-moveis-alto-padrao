@@ -4,7 +4,8 @@ import { resolve } from "path";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const proxyTarget = env.VITE_API_PROXY_TARGET;
+  const proxyTarget =
+    env.VITE_API_PROXY_TARGET || env.CATALOG_API_URL || "http://localhost:4000";
 
   return {
     plugins: [react()],
@@ -13,16 +14,14 @@ export default defineConfig(({ mode }) => {
         "@": resolve(__dirname, "src"),
       },
     },
-    server: proxyTarget
-      ? {
-          proxy: {
-            "/api": {
-              target: proxyTarget,
-              changeOrigin: true,
-            },
-          },
-        }
-      : undefined,
+    server: {
+      proxy: {
+        "/api": {
+          target: proxyTarget,
+          changeOrigin: true,
+        },
+      },
+    },
     build: {
       outDir: "dist",
       emptyOutDir: true,

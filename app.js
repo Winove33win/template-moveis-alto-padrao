@@ -3,14 +3,25 @@ const express = require("express");
 const path = require("path");
 const compression = require("compression");
 const helmet = require("helmet");
+const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const catalogApiUrl = process.env.CATALOG_API_URL || "http://localhost:4000";
 const distPath = path.join(__dirname, "dist");
 const indexFile = path.join(distPath, "index.html");
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(compression());
+
+app.use(
+  "/api",
+  createProxyMiddleware({
+    target: catalogApiUrl,
+    changeOrigin: true,
+    xfwd: true,
+  })
+);
 
 app.use(
   express.static(distPath, {
