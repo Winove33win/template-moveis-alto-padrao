@@ -50,7 +50,7 @@ function Home() {
               <button type="button" className="btn btn-primary" onClick={open}>
                 Solicite uma cotação
               </button>
-              <Link to="/servicos" className="hero__secondary">
+              <Link to="/servicos" className="hero__secondary hero__secondary--light">
                 Conheça nossos serviços
               </Link>
             </div>

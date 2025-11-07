@@ -309,8 +309,21 @@ section {
 }
 
 .hero__secondary {
-  color: white;
+  color: var(--text-primary);
   font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.hero__secondary:hover {
+  color: var(--accent);
+}
+
+.hero__secondary--light {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.hero__secondary--light:hover {
+  color: white;
 }
 
 .hero__metrics {
