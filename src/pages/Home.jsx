@@ -38,7 +38,7 @@ function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           >
-            <span className="badge">Logística 4.0 sem complicação</span>
+            <span className="badge badge--light">Logística 4.0 sem complicação</span>
             <h1>
               Agilidade e previsibilidade para operações logísticas que não podem parar
             </h1>
