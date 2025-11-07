@@ -3,17 +3,23 @@ import { useOutletContext } from "react-router-dom";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import ProductCard from "@/components/ProductCard";
 import Seo from "@/components/Seo";
-import { products } from "@/data/products";
 import "./Products.css";
 
 export default function ProductsPage() {
-  const { categories } = useOutletContext();
+  const { categories = [], categoriesQuery, products = [], productsQuery } =
+    useOutletContext() ?? {};
   const [activeCategory, setActiveCategory] = useState("all");
+
+  const isLoading = categoriesQuery?.isLoading || productsQuery?.isLoading;
+  const isError = categoriesQuery?.isError || productsQuery?.isError;
+  const error = categoriesQuery?.error ?? productsQuery?.error;
 
   const categoryMap = useMemo(() => {
     const map = new Map();
-    categories?.forEach((category) => {
-      map.set(category.id, category);
+    categories.forEach((category) => {
+      if (category?.slug) {
+        map.set(category.slug, category);
+      }
     });
     return map;
   }, [categories]);
@@ -23,7 +29,7 @@ export default function ProductsPage() {
       return products;
     }
     return products.filter((product) => product.categoryId === activeCategory);
-  }, [activeCategory]);
+  }, [activeCategory, products]);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
@@ -38,7 +44,7 @@ export default function ProductsPage() {
         "@type": "Product",
         position: index + 1,
         name: product.name,
-        url: origin ? `${origin}/produto/${product.id}` : undefined,
+        url: origin ? `${origin}/produto/${product.slug ?? product.id}` : undefined,
         category: categoryMap.get(product.categoryId)?.name,
         description: product.summary,
       })),
@@ -75,25 +81,43 @@ export default function ProductsPage() {
           >
             Todos
           </button>
-          {categories?.map((category) => (
+          {categories.map((category) => (
             <button
-              key={category.id}
+              key={category.uuid ?? category.slug}
               type="button"
               role="tab"
-              className={activeCategory === category.id ? "is-active" : ""}
-              aria-selected={activeCategory === category.id}
-              onClick={() => setActiveCategory(category.id)}
+              className={activeCategory === category.slug ? "is-active" : ""}
+              aria-selected={activeCategory === category.slug}
+              onClick={() => setActiveCategory(category.slug)}
             >
               {category.name}
             </button>
           ))}
         </div>
 
-        <section className="catalog-grid" aria-live="polite">
-          {visibleProducts.map((product) => (
-            <ProductCard key={product.id} product={product} category={categoryMap.get(product.categoryId)} />
-          ))}
-        </section>
+        {isLoading ? (
+          <p className="catalog-page__status" role="status">
+            Carregando catálogo...
+          </p>
+        ) : null}
+
+        {isError ? (
+          <p className="catalog-page__status" role="alert">
+            Não foi possível carregar os produtos. {error?.message ?? "Tente novamente mais tarde."}
+          </p>
+        ) : null}
+
+        {!isLoading && !isError ? (
+          <section className="catalog-grid" aria-live="polite">
+            {visibleProducts.map((product) => (
+              <ProductCard
+                key={product.uuid ?? product.id}
+                product={product}
+                category={categoryMap.get(product.categoryId)}
+              />
+            ))}
+          </section>
+        ) : null}
 
         <section className="catalog-page__cta">
           <div>

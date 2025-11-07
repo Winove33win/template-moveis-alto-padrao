@@ -459,10 +459,4 @@ export const products = [
   },
 ];
 
-export function getCategoryById(categoryId) {
-  return productCategories.find((category) => category.id === categoryId);
-}
-
-export function getProductById(productId) {
-  return products.find((product) => product.id === productId);
-}
+// Este arquivo permanece apenas como fonte de dados para o script de seed do backend.
