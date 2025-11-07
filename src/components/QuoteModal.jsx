@@ -40,8 +40,8 @@ export function QuoteModal({ isOpen, onClose }) {
           >
             <header className="modal-header">
               <div>
-                <p className="modal-kicker">Solicite uma proposta</p>
-                <h2>Nos conte sobre a sua operação</h2>
+                <p className="modal-kicker">Consultoria exclusiva</p>
+                <h2>Conte-nos sobre o seu ambiente</h2>
               </div>
               <button type="button" aria-label="Fechar modal" onClick={onClose} className="modal-close">
                 <X size={20} />
@@ -53,27 +53,35 @@ export function QuoteModal({ isOpen, onClose }) {
                 <input type="text" name="name" placeholder="Como devemos te chamar?" required />
               </label>
               <label>
-                Empresa
-                <input type="text" name="company" placeholder="Nome da sua empresa" />
+                E-mail
+                <input type="email" name="email" placeholder="voce@email.com" required />
               </label>
               <label>
-                E-mail corporativo
-                <input type="email" name="email" placeholder="email@empresa.com" required />
+                WhatsApp
+                <input type="tel" name="phone" placeholder="(00) 00000-0000" required />
               </label>
               <label>
-                Telefone
-                <input type="tel" name="phone" placeholder="(00) 00000-0000" />
+                Ambiente do projeto
+                <input type="text" name="space" placeholder="Ex.: Living integrado, suíte master" />
               </label>
               <label>
-                Como podemos ajudar?
-                <textarea rows="4" name="message" placeholder="Descreva sua operação e desafios."></textarea>
+                Estilo desejado
+                <input type="text" name="style" placeholder="Minimalista, contemporâneo, etc." />
+              </label>
+              <label>
+                Orçamento estimado
+                <input type="text" name="budget" placeholder="Informe a faixa de investimento" />
+              </label>
+              <label>
+                Detalhes adicionais
+                <textarea rows="4" name="message" placeholder="Medidas, prazos ou referências que deseja compartilhar."></textarea>
               </label>
               <button type="submit" className="btn btn-primary">
-                Enviar solicitação
+                Enviar briefing
               </button>
             </form>
             <p className="modal-footnote">
-              Nosso time responde em até 1 dia útil. Seus dados são tratados conforme nossa política de privacidade.
+              Nosso time retorna em até algumas horas úteis pelo WhatsApp para apresentar uma proposta personalizada.
             </p>
           </motion.div>
         </motion.div>

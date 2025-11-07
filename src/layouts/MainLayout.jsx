@@ -9,9 +9,10 @@ import { QuoteModalContext } from "@/context/QuoteModalContext";
 
 const navItems = [
   { label: "Início", to: "/" },
+  { label: "Coleções", to: "/colecoes" },
+  { label: "Ambientes", to: "/ambientes" },
   { label: "Sobre", to: "/sobre" },
-  { label: "Serviços", to: "/servicos" },
-  { label: "Contato", to: "/contato" },
+  { label: "Consultoria", to: "/consultoria" },
 ];
 
 const pageVariants = {
@@ -30,7 +31,6 @@ export function MainLayout() {
     const SCROLL_ENTER_THRESHOLD = 64;
     const SCROLL_EXIT_THRESHOLD = 16;
 
-    // Apply hysteresis so the header doesn't flicker when hovering near the top.
     const listener = () => {
       setScrolled((previous) => {
         if (previous) {
@@ -63,19 +63,19 @@ export function MainLayout() {
       <div className="app-shell">
         <header className={`app-header ${scrolled ? "app-header--compact" : ""}`}>
           <div className="container app-header__inner">
-            <NavLink to="/" className="brand">
-              LogiPro
+            <NavLink to="/" className="brand" aria-label="Nobile Design Home">
+              Nobile Design
             </NavLink>
             <nav className="nav-desktop" aria-label="Principal">
               {navItems.map((item) => (
-                <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? "is-active" : "")}> 
+                <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? "is-active" : "")}>
                   {item.label}
                 </NavLink>
               ))}
             </nav>
             <div className="header-actions">
               <button type="button" className="btn btn-outline" onClick={() => setIsQuoteOpen(true)}>
-                Solicitar cotação
+                Solicitar consultoria
               </button>
               <button
                 type="button"
@@ -108,13 +108,13 @@ export function MainLayout() {
                 </div>
                 <div className="mobile-drawer__links">
                   {navItems.map((item) => (
-                    <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? "is-active" : "")}> 
+                    <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? "is-active" : "")}>
                       {item.label}
                     </NavLink>
                   ))}
                 </div>
                 <button type="button" className="btn btn-primary" onClick={() => setIsQuoteOpen(true)}>
-                  Solicitar cotação
+                  Solicitar consultoria
                 </button>
               </motion.nav>
             </motion.div>
