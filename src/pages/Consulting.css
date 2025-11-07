@@ -157,3 +157,71 @@
     padding: clamp(2.5rem, 8vw, 3.5rem);
   }
 }
+
+@media (max-width: 768px) {
+  .consulting-hero,
+  .consulting-section {
+    width: min(100%, calc(100% - 2rem));
+  }
+
+  .consulting-hero {
+    grid-template-columns: 1fr;
+    gap: clamp(2rem, 7vw, 3rem);
+  }
+
+  .consulting-hero h1 {
+    font-size: clamp(2.1rem, 6vw, 2.7rem);
+  }
+
+  .consulting-hero__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .consulting-hero__info {
+    order: 2;
+  }
+
+  .consulting-section {
+    padding: clamp(2.5rem, 9vw, 3.5rem);
+  }
+
+  .consulting-steps,
+  .consulting-form {
+    grid-template-columns: 1fr;
+  }
+
+  .consulting-form aside {
+    gap: 1.25rem;
+  }
+
+  .consulting-form aside div {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .consulting-form .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .consulting-hero,
+  .consulting-section {
+    width: min(100%, calc(100% - 1.5rem));
+  }
+
+  .consulting-section {
+    padding: clamp(2.1rem, 10vw, 3rem);
+  }
+
+  .consulting-hero__info article,
+  .consulting-form aside div,
+  .consulting-faq details {
+    padding: 1.5rem;
+  }
+
+  .consulting-steps article {
+    padding: 1.5rem;
+  }
+}
