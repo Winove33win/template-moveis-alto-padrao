@@ -15,8 +15,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(compression());
 
 app.use(
-  "/api",
-  createProxyMiddleware({
+  createProxyMiddleware("/api", {
     target: catalogApiUrl,
     changeOrigin: true,
     xfwd: true,
