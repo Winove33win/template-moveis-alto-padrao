@@ -102,7 +102,7 @@ function Contact() {
             <motion.div className="contact-cta" variants={item}>
               <h3>Precisa de atendimento imediato?</h3>
               <p>Nossa torre de controle funciona 24/7 e prioriza ocorrências críticas em minutos.</p>
-              <button type="button" className="btn btn-outline" onClick={open}>
+              <button type="button" className="btn btn-outline btn-outline--dark" onClick={open}>
                 Abrir chamado urgente
               </button>
             </motion.div>
