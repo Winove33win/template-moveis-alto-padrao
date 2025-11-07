@@ -18,17 +18,13 @@ function PrivacyPolicy() {
     <div className="page">
       <section className="page-hero">
         <div className="container page-hero__inner">
-          <motion.div
-            initial={{ opacity: 0, y: 32 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-          >
+          <motion.div initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: "easeOut" }}>
             <span className="badge">Política de Privacidade</span>
-            <h1>Transparência e confiança na proteção dos seus dados</h1>
+            <h1>Compromisso com a segurança das suas informações</h1>
             <p>
-              Esta página descreve as diretrizes que seguimos para coletar, utilizar, armazenar e proteger as informações
-              fornecidas pelos usuários da LogiPro. Os textos abaixo são placeholders e podem ser atualizados conforme a
-              documentação jurídica oficial.
+              A Nobile Design adota práticas transparentes para coletar, tratar e proteger dados pessoais utilizados na nossa
+              operação digital e no atendimento consultivo. Atualize este conteúdo com as diretrizes jurídicas oficiais da sua
+              empresa.
             </p>
           </motion.div>
         </div>
@@ -39,30 +35,26 @@ function PrivacyPolicy() {
           <motion.div variants={container} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
             <motion.h2 variants={item}>1. Informações coletadas</motion.h2>
             <motion.p variants={item}>
-              Descreva os tipos de dados pessoais coletados, incluindo dados de contato, registros de navegação e informações
-              fornecidas em formulários. Explique quais tecnologias de rastreamento são utilizadas e por que são necessárias
-              para a operação do serviço.
+              Liste os dados pessoais coletados em formulários, atendimentos via WhatsApp e navegação no site, incluindo nome,
+              contato, preferências de projeto e registros técnicos (cookies, IP, dispositivo).
             </motion.p>
 
             <motion.h2 variants={item}>2. Finalidade do tratamento</motion.h2>
             <motion.p variants={item}>
-              Indique como os dados são utilizados para prestar serviços logísticos, melhorar a experiência do usuário e
-              oferecer suporte. Inclua observações sobre comunicações de marketing e a possibilidade de cancelamento pelo
-              usuário.
+              Explique como os dados são utilizados para elaborar propostas de mobiliário, personalizar consultorias, enviar
+              comunicações relevantes e cumprir obrigações legais ou contratuais.
             </motion.p>
 
             <motion.h2 variants={item}>3. Compartilhamento e retenção</motion.h2>
             <motion.p variants={item}>
-              Informe como os dados podem ser compartilhados com parceiros estratégicos, autoridades regulatórias ou provedores
-              de infraestrutura. Detalhe os critérios para retenção dos dados e os mecanismos utilizados para garantir a
-              segurança das informações.
+              Informe com quais fornecedores (logística, ERP, parceiros de pagamento) os dados podem ser compartilhados e por
+              quanto tempo são armazenados, considerando as etapas do projeto e pós-venda.
             </motion.p>
 
             <motion.h2 variants={item}>4. Direitos dos titulares</motion.h2>
             <motion.p variants={item}>
-              Explique como os usuários podem solicitar acesso, correção ou exclusão de seus dados pessoais, bem como registrar
-              reclamações junto às autoridades competentes. Inclua orientações sobre o canal de contato responsável pelo
-              atendimento dessas solicitações.
+              Descreva como o titular pode solicitar acesso, correção, portabilidade ou exclusão dos dados, bem como entrar em
+              contato com o encarregado (DPO) responsável pela governança de privacidade.
             </motion.p>
           </motion.div>
         </div>
