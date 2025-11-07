@@ -3,17 +3,21 @@ import { Link, useOutletContext, useParams } from "react-router-dom";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import ProductCard from "@/components/ProductCard";
 import Seo from "@/components/Seo";
-import { products } from "@/data/products";
 import "./Products.css";
 
 export default function ProductsCategoryPage() {
-  const { categories } = useOutletContext();
+  const { categories = [], categoriesQuery, products = [], productsQuery } =
+    useOutletContext() ?? {};
   const { categoryId } = useParams();
+
+  const isLoading = categoriesQuery?.isLoading || productsQuery?.isLoading;
+  const isError = categoriesQuery?.isError || productsQuery?.isError;
+  const error = categoriesQuery?.error ?? productsQuery?.error;
 
   const category = useMemo(
     () =>
-      categories?.find(
-        (item) => item.id === categoryId || item.slug === categoryId
+      categories.find(
+        (item) => item.slug === categoryId || item.id === categoryId
       ),
     [categories, categoryId]
   );
@@ -22,8 +26,8 @@ export default function ProductsCategoryPage() {
     if (!category) {
       return [];
     }
-    return products.filter((product) => product.categoryId === category.id);
-  }, [category]);
+    return products.filter((product) => product.categoryId === category.slug);
+  }, [category, products]);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
@@ -44,12 +48,36 @@ export default function ProductsCategoryPage() {
         "@type": "Product",
         position: index + 1,
         name: product.name,
-        url: origin ? `${origin}/produto/${product.id}` : undefined,
+        url: origin ? `${origin}/produto/${product.slug ?? product.id}` : undefined,
         category: category.name,
         description: product.summary,
       })),
     };
   }, [category, categoryProducts, origin]);
+
+  if (isLoading) {
+    return (
+      <div className="catalog-page">
+        <div className="container catalog-page__container">
+          <p className="catalog-page__status" role="status">
+            Carregando categoria...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="catalog-page">
+        <div className="container catalog-page__container">
+          <p className="catalog-page__status" role="alert">
+            Não foi possível carregar a categoria. {error?.message ?? "Tente novamente."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!category) {
     return (
@@ -100,7 +128,7 @@ export default function ProductsCategoryPage() {
 
         <section className="catalog-grid" aria-live="polite">
           {categoryProducts.map((product) => (
-            <ProductCard key={product.id} product={product} category={category} />
+            <ProductCard key={product.uuid ?? product.id} product={product} category={category} />
           ))}
         </section>
 
