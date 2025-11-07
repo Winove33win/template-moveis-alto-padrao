@@ -1,21 +1,18 @@
+import { productCategories as catalogCategories } from "./products";
+
 export const navItems = [
   { label: "Início", to: "/" },
   { label: "Coleções", to: "/colecoes" },
   { label: "Ambientes", to: "/ambientes" },
   { label: "Sobre", to: "/sobre" },
   { label: "Consultoria", to: "/consultoria" },
+  { label: "Produtos", to: "/produtos" },
 ];
 
-export const productCategories = [
-  { label: "Abajures", slug: "abajures" },
-  { label: "Banquetas", slug: "banquetas" },
-  { label: "Mesa de jantar", slug: "mesa-de-jantar" },
-  { label: "Mesas laterais", slug: "mesas-laterais" },
-  { label: "Sofás", slug: "sofas" },
-  { label: "Cadeiras", slug: "cadeiras" },
-  { label: "Mesas", slug: "mesas" },
-  { label: "Poltronas", slug: "poltronas" },
-];
+export const productCategories = catalogCategories.map((category) => ({
+  label: category.name,
+  slug: category.slug,
+}));
 
 export function buildProductCategoryPath(slug) {
   return `/produtos/${slug}`;
