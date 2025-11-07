@@ -27,8 +27,17 @@ export function MainLayout() {
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
 
   useEffect(() => {
+    const SCROLL_ENTER_THRESHOLD = 64;
+    const SCROLL_EXIT_THRESHOLD = 16;
+
+    // Apply hysteresis so the header doesn't flicker when hovering near the top.
     const listener = () => {
-      setScrolled(window.scrollY > 12);
+      setScrolled((previous) => {
+        if (previous) {
+          return window.scrollY > SCROLL_EXIT_THRESHOLD;
+        }
+        return window.scrollY >= SCROLL_ENTER_THRESHOLD;
+      });
     };
     window.addEventListener("scroll", listener, { passive: true });
     listener();
