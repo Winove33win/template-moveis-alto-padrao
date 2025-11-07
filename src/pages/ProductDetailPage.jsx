@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import Seo from "@/components/Seo";
-import { getCategoryById, getProductById, products } from "@/data/products";
 import { useQuoteModal } from "@/context/QuoteModalContext";
 import "./Products.css";
 
@@ -22,24 +21,56 @@ function renderSpecValue(value) {
     return "-";
   }
   if (Array.isArray(value)) {
-    return value.join(", ");
+    return value.length ? value.join(", ") : "-";
   }
   return value;
 }
 
 export default function ProductDetailPage() {
-  const { categories } = useOutletContext();
+  const { categories = [], categoriesQuery, products = [], productsQuery } =
+    useOutletContext() ?? {};
   const params = useParams();
   const { open } = useQuoteModal();
 
-  const product = useMemo(() => getProductById(params.productId), [params.productId]);
+  const isLoading = categoriesQuery?.isLoading || productsQuery?.isLoading;
+  const isError = categoriesQuery?.isError || productsQuery?.isError;
+  const error = categoriesQuery?.error ?? productsQuery?.error;
+
+  const product = useMemo(
+    () =>
+      products.find(
+        (item) => item.id === params.productId || item.slug === params.productId
+      ),
+    [products, params.productId]
+  );
 
   const category = useMemo(() => {
     if (!product) {
       return undefined;
     }
-    return getCategoryById(product.categoryId) ?? categories?.find((item) => item.id === product.categoryId);
+    return (
+      categories.find(
+        (item) =>
+          item.slug === product.categoryId ||
+          item.id === product.categoryId ||
+          item.uuid === product.categoryUuid
+      ) ?? null
+    );
   }, [product, categories]);
+
+  const relatedProducts = useMemo(() => {
+    if (!product) {
+      return [];
+    }
+    return products
+      .filter(
+        (item) =>
+          item.slug !== product.slug &&
+          item.id !== product.id &&
+          item.categoryId === product.categoryId
+      )
+      .slice(0, 3);
+  }, [products, product]);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
@@ -52,7 +83,9 @@ export default function ProductDetailPage() {
       "@type": "Product",
       name: product.name,
       description: product.summary ?? product.description,
-      image: product.media?.map((item) => (origin ? `${origin}${item.src}` : item.src)),
+      image: product.media?.map((item) =>
+        origin ? `${origin}${item.src}` : item.src
+      ),
       category: category?.name,
       brand: {
         "@type": "Brand",
@@ -70,6 +103,30 @@ export default function ProductDetailPage() {
       },
     };
   }, [product, category, origin]);
+
+  if (isLoading) {
+    return (
+      <div className="catalog-page">
+        <div className="container catalog-page__container">
+          <p className="catalog-page__status" role="status">
+            Carregando produto...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="catalog-page">
+        <div className="container catalog-page__container">
+          <p className="catalog-page__status" role="alert">
+            Não foi possível carregar os detalhes do produto. {error?.message ?? "Tente novamente."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -93,7 +150,7 @@ export default function ProductDetailPage() {
       <Seo
         title={`${product.name} — ${category?.name ?? "Produto"} | Nobile Design`}
         description={product.summary ?? product.description}
-        canonical={origin ? `${origin}/produto/${product.id}` : undefined}
+        canonical={origin ? `${origin}/produto/${product.slug ?? product.id}` : undefined}
         schema={schema}
       />
       <div className="container catalog-page__container">
@@ -110,7 +167,7 @@ export default function ProductDetailPage() {
           <div className="catalog-detail__gallery">
             {product.media?.map((item) => (
               <figure key={item.src}>
-                <img src={item.src} alt={item.alt} loading="lazy" />
+                <img src={item.src} alt={item.alt ?? product.name} loading="lazy" />
               </figure>
             ))}
           </div>
@@ -155,15 +212,12 @@ export default function ProductDetailPage() {
             <p>Peças que dialogam com o design do {product.name} para compor ambientes completos.</p>
           </header>
           <div className="catalog-related__list">
-            {products
-              .filter((item) => item.id !== product.id && item.categoryId === product.categoryId)
-              .slice(0, 3)
-              .map((related) => (
-                <Link key={related.id} to={`/produto/${related.id}`} className="catalog-related__item">
-                  <img src={related.media?.[0]?.src} alt={related.media?.[0]?.alt ?? related.name} loading="lazy" />
-                  <span>{related.name}</span>
-                </Link>
-              ))}
+            {relatedProducts.map((related) => (
+              <Link key={related.uuid ?? related.id} to={`/produto/${related.slug ?? related.id}`} className="catalog-related__item">
+                <img src={related.media?.[0]?.src} alt={related.media?.[0]?.alt ?? related.name} loading="lazy" />
+                <span>{related.name}</span>
+              </Link>
+            ))}
           </div>
         </section>
       </div>

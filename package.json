@@ -12,6 +12,7 @@
     "server": "nodemon app.js"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.51.3",
     "compression": "^1.7.5",
     "express": "^4.19.2",
     "framer-motion": "^11.0.0",
