@@ -300,7 +300,7 @@ section {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: clamp(2rem, 4vw, 4rem);
-  align-items: center;
+  align-items: flex-start;
   position: relative;
   z-index: 1;
 }
