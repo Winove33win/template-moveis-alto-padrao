@@ -12,6 +12,8 @@ const navItems = [
   { label: "Sobre", to: "/sobre" },
   { label: "Serviços", to: "/servicos" },
   { label: "Contato", to: "/contato" },
+  { label: "Privacidade", to: "/politica-de-privacidade" },
+  { label: "Termos", to: "/termos-de-uso" },
 ];
 
 const pageVariants = {
