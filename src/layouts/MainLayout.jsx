@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import QuoteModal from "@/components/QuoteModal";
 import ScrollToTopButton from "@/components/ScrollToTopButton";
 import { QuoteModalContext } from "@/context/QuoteModalContext";
-import { buildProductCategoryPath, navItems, productCategories } from "@/data/navigation";
+import { navItems, productMenuItems } from "@/data/navigation";
 
 const pageVariants = {
   initial: { opacity: 0, y: 24 },
@@ -44,6 +44,7 @@ export function MainLayout() {
   useEffect(() => {
     setMobileOpen(false);
     setIsProductsMenuOpen(false);
+    setIsMobileProductsOpen(false);
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [location.pathname]);
 
@@ -109,6 +110,9 @@ export function MainLayout() {
     [isQuoteOpen]
   );
 
+  const isProductsActive =
+    location.pathname === "/produtos" || location.pathname.startsWith("/produtos/");
+
   const handleProductsBlur = (event) => {
     if (!event.currentTarget.contains(event.relatedTarget)) {
       setIsProductsMenuOpen(false);
@@ -153,7 +157,7 @@ export function MainLayout() {
               >
                 <button
                   type="button"
-                  className="nav-desktop__button"
+                  className={`nav-desktop__button${isProductsActive ? " is-active" : ""}`}
                   aria-haspopup="true"
                   aria-expanded={isProductsMenuOpen}
                   aria-controls="desktop-products-menu"
@@ -170,14 +174,14 @@ export function MainLayout() {
                   ref={productsMenuRef}
                   aria-label="Categorias de produtos"
                 >
-                  {productCategories.map((category) => (
-                    <li key={category.slug}>
+                  {productMenuItems.map((item) => (
+                    <li key={item.to}>
                       <NavLink
-                        to={buildProductCategoryPath(category.slug)}
+                        to={item.to}
                         onClick={() => setIsProductsMenuOpen(false)}
                         className={({ isActive }) => (isActive ? "is-active" : "")}
                       >
-                        {category.label}
+                        {item.label}
                       </NavLink>
                     </li>
                   ))}
@@ -244,14 +248,14 @@ export function MainLayout() {
                       className="mobile-accordion__panel"
                       aria-label="Categorias de produtos"
                     >
-                      {productCategories.map((category) => (
+                      {productMenuItems.map((item) => (
                         <NavLink
-                          key={category.slug}
-                          to={buildProductCategoryPath(category.slug)}
+                          key={item.to}
+                          to={item.to}
                           onClick={handleMobileLinkClick}
                           className={({ isActive }) => (isActive ? "is-active" : "")}
                         >
-                          {category.label}
+                          {item.label}
                         </NavLink>
                       ))}
                     </div>
