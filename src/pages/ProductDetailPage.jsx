@@ -6,16 +6,34 @@ import { useQuoteModal } from "@/context/QuoteModalContext";
 import ImageModal from "@/components/ImageModal";
 import "./Products.css";
 
-const SPEC_LABELS = {
-  designer: "Designer",
-  dimensions: "Dimensões",
-  materials: "Materiais",
-  finishOptions: "Acabamentos",
-  lightSource: "Fonte de luz",
-  leadTime: "Prazo de produção",
-  warranty: "Garantia",
-  customization: "Personalização",
-};
+const SPEC_GROUPS = [
+  {
+    id: "general",
+    title: "Informações gerais",
+    fields: [
+      { key: "designer", label: "Designer" },
+      { key: "dimensions", label: "Dimensões" },
+      { key: "lightSource", label: "Fonte de luz" },
+    ],
+  },
+  {
+    id: "materials",
+    title: "Materiais e acabamentos",
+    fields: [
+      { key: "materials", label: "Materiais" },
+      { key: "finishOptions", label: "Acabamentos" },
+    ],
+  },
+  {
+    id: "production",
+    title: "Produção e personalização",
+    fields: [
+      { key: "leadTime", label: "Prazo de produção" },
+      { key: "warranty", label: "Garantia" },
+      { key: "customization", label: "Personalização" },
+    ],
+  },
+];
 
 function renderSpecValue(value) {
   if (Array.isArray(value)) {
@@ -238,7 +256,7 @@ export default function ProductDetailPage() {
               </figure>
             ))}
           </div>
-          <div className="catalog-detail__content">
+          <div className="catalog-detail__summary">
             <span className="eyebrow">{category?.name ?? "Produto"}</span>
             <h1>{product.name}</h1>
             {product.description ? <p>{product.description}</p> : null}
@@ -258,19 +276,29 @@ export default function ProductDetailPage() {
                 Conversar no WhatsApp
               </a>
             </div>
-
-            <section>
-              <h2>Ficha técnica</h2>
-              <dl className="catalog-detail__specs">
-                {Object.entries(SPEC_LABELS).map(([key, label]) => (
-                  <div key={key}>
-                    <dt>{label}</dt>
-                    <dd>{renderSpecValue(product.specs?.[key])}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
           </div>
+          <section className="catalog-detail__specs">
+            <h2>Ficha técnica</h2>
+            <div className="catalog-detail__specs-groups">
+              {SPEC_GROUPS.map((group) => (
+                <section
+                  key={group.id}
+                  className="catalog-detail__specs-group"
+                  aria-labelledby={`spec-group-${group.id}`}
+                >
+                  <h3 id={`spec-group-${group.id}`}>{group.title}</h3>
+                  <dl className="catalog-detail__specs-list">
+                    {group.fields.map(({ key, label }) => (
+                      <div key={key} className="catalog-detail__specs-item">
+                        <dt>{label}</dt>
+                        <dd>{renderSpecValue(product.specs?.[key])}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              ))}
+            </div>
+          </section>
         </article>
 
         <ImageModal
