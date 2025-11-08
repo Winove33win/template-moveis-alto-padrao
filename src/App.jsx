@@ -3,7 +3,6 @@ import { MainLayout } from "@/layouts/MainLayout";
 import { CatalogLayout } from "@/layouts/CatalogLayout";
 import Home from "@/pages/Home";
 import About from "@/pages/About";
-import Collections from "@/pages/Collections";
 import Portfolio from "@/pages/Portfolio";
 import Consulting from "@/pages/Consulting";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
@@ -17,7 +16,6 @@ function App() {
     <Routes>
       <Route element={<MainLayout />}>
         <Route index element={<Home />} />
-        <Route path="/colecoes" element={<Collections />} />
         <Route path="/ambientes" element={<Portfolio />} />
         <Route path="/sobre" element={<About />} />
         <Route path="/consultoria" element={<Consulting />} />

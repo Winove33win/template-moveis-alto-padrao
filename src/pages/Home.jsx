@@ -267,7 +267,7 @@ export default function Home() {
                   ))}
                 </ul>
                 <a className="link" href={collection.link ?? "/produtos"}>
-                  Ver detalhes da coleção
+                  Explorar linha de produtos
                 </a>
               </div>
             </article>
