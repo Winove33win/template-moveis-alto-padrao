@@ -76,53 +76,141 @@
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.portfolio-grid {
+.portfolio-environments {
   display: grid;
-  gap: 2rem;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: clamp(2.5rem, 5vw, 3.5rem);
 }
 
-.portfolio-card {
+.environment-card {
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  overflow: hidden;
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   display: grid;
-  grid-template-rows: 220px 1fr;
+  grid-template-columns: minmax(280px, 1.05fr) minmax(280px, 1fr);
+  gap: clamp(1.5rem, 4vw, 3rem);
+  overflow: hidden;
+  position: relative;
 }
 
-.portfolio-card__media img {
+.environment-card__media {
+  position: relative;
+  min-height: 100%;
+}
+
+.environment-card__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(12, 15, 21, 0) 55%, rgba(12, 15, 21, 0.4) 100%);
+  pointer-events: none;
+}
+
+.environment-card__media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
-.portfolio-card__content {
-  padding: 1.75rem;
+.environment-card__content {
+  padding: clamp(1.75rem, 4vw, 2.25rem);
+  display: grid;
+  gap: clamp(1rem, 3vw, 1.5rem);
+  align-content: start;
+}
+
+.environment-card__header h3 {
+  margin-top: 0.35rem;
+  margin-bottom: 0;
+  font-size: clamp(1.4rem, 2.8vw, 1.8rem);
+}
+
+.environment-card__content p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.environment-card__categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.environment-card__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: background 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.environment-card__chip:hover,
+.environment-card__chip:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+.environment-card__inspirations {
   display: grid;
   gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
-.portfolio-card__content span {
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 0.75rem;
-  color: var(--text-muted);
+.environment-card__inspiration {
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+  display: grid;
+  gap: 0.75rem;
 }
 
-.portfolio-card__content p {
+.environment-card__inspiration figure {
+  height: 160px;
   margin: 0;
-  color: var(--text-secondary);
 }
 
-.portfolio-card__content ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.environment-card__inspiration img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.environment-card__inspiration div {
+  padding: 0 1rem 1.1rem;
   display: grid;
   gap: 0.35rem;
+}
+
+.environment-card__inspiration h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.environment-card__inspiration p {
+  margin: 0;
   color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+}
+
+.environment-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.environment-card__actions .link {
+  font-weight: 500;
 }
 
 .portfolio-gallery {
@@ -136,6 +224,15 @@
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.06);
   margin: 0;
+  display: grid;
+  grid-template-rows: auto auto;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.portfolio-gallery figcaption {
+  padding: 0.9rem 1.1rem 1.2rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
 }
 
 .portfolio-gallery__cta {
@@ -149,28 +246,40 @@
   color: var(--text-secondary);
 }
 
-.portfolio-media {
+.portfolio-section--cta {
+  background: rgba(12, 15, 21, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.portfolio-cta {
+  display: grid;
+  gap: clamp(2rem, 4vw, 3rem);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: center;
+}
+
+.portfolio-cta__content {
   display: grid;
   gap: 1.25rem;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.portfolio-media article {
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.03);
-  padding: 1.5rem;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.portfolio-media article h3 {
-  margin: 0;
-}
-
-.portfolio-media article p {
+.portfolio-cta__content p {
   margin: 0;
   color: var(--text-secondary);
+}
+
+.portfolio-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.portfolio-cta__media img {
+  width: 100%;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  object-fit: cover;
+  box-shadow: 0 24px 48px -32px rgba(0, 0, 0, 0.6);
 }
 
 @media (max-width: 720px) {
@@ -203,9 +312,20 @@
     padding: clamp(2.5rem, 9vw, 3.5rem);
   }
 
-  .portfolio-grid,
+  .environment-card {
+    grid-template-columns: 1fr;
+  }
+
+  .environment-card__media {
+    min-height: 220px;
+  }
+
+  .environment-card__inspiration figure {
+    height: 140px;
+  }
+
   .portfolio-gallery,
-  .portfolio-media {
+  .portfolio-cta {
     grid-template-columns: 1fr;
   }
 
@@ -213,11 +333,6 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 0.65rem;
-  }
-
-  .portfolio-gallery__cta .btn,
-  .portfolio-card__content .btn {
-    width: 100%;
   }
 }
 
@@ -231,19 +346,14 @@
     padding: clamp(2.1rem, 10vw, 3rem);
   }
 
-  .portfolio-card,
+  .environment-card,
   .portfolio-gallery figure,
-  .portfolio-media article {
+  .portfolio-cta__media img {
     border-radius: 24px;
   }
 
-  .portfolio-card {
-    grid-template-rows: minmax(200px, 1fr) auto;
-  }
-
-  .portfolio-card__content,
-  .portfolio-media article {
-    padding: 1.5rem;
+  .environment-card__content {
+    padding: 1.75rem;
   }
 
   .portfolio-gallery__cta {
