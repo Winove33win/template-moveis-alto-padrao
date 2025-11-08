@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import ProductCard from "@/components/ProductCard";
@@ -8,8 +8,6 @@ import "./Products.css";
 export default function ProductsPage() {
   const { categories = [], categoriesQuery, products = [], productsQuery } =
     useOutletContext() ?? {};
-  const [activeCategory, setActiveCategory] = useState("all");
-
   const isLoading = categoriesQuery?.isLoading || productsQuery?.isLoading;
   const isError = categoriesQuery?.isError || productsQuery?.isError;
   const error = categoriesQuery?.error ?? productsQuery?.error;
@@ -24,13 +22,6 @@ export default function ProductsPage() {
     return map;
   }, [categories]);
 
-  const visibleProducts = useMemo(() => {
-    if (activeCategory === "all") {
-      return products;
-    }
-    return products.filter((product) => product.categoryId === activeCategory);
-  }, [activeCategory, products]);
-
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
   const schema = useMemo(
@@ -40,7 +31,7 @@ export default function ProductsPage() {
       name: "Catálogo Nobile Design",
       description:
         "Seleção curada de móveis, iluminação e peças de apoio assinadas pela Nobile Design.",
-      hasPart: visibleProducts.map((product, index) => ({
+      hasPart: products.map((product, index) => ({
         "@type": "Product",
         position: index + 1,
         name: product.name,
@@ -49,7 +40,7 @@ export default function ProductsPage() {
         description: product.summary,
       })),
     }),
-    [visibleProducts, categoryMap, origin]
+    [products, categoryMap, origin]
   );
 
   return (
@@ -66,34 +57,10 @@ export default function ProductsPage() {
           <span className="eyebrow">Catálogo 2024</span>
           <h1>Produtos autorais para ambientes residenciais e corporativos.</h1>
           <p>
-            Explore uma curadoria de móveis de alto padrão, iluminação e peças de apoio desenhadas para projetos exclusivos.
-            Utilize os filtros por categoria para encontrar a solução ideal para o seu ambiente.
+            Explore uma curadoria de móveis de alto padrão, iluminação e peças de apoio desenhadas para projetos
+            exclusivos.
           </p>
         </header>
-
-        <div className="catalog-page__filters" role="tablist" aria-label="Filtrar produtos por categoria">
-          <button
-            type="button"
-            role="tab"
-            className={activeCategory === "all" ? "is-active" : ""}
-            aria-selected={activeCategory === "all"}
-            onClick={() => setActiveCategory("all")}
-          >
-            Todos
-          </button>
-          {categories.map((category) => (
-            <button
-              key={category.uuid ?? category.slug}
-              type="button"
-              role="tab"
-              className={activeCategory === category.slug ? "is-active" : ""}
-              aria-selected={activeCategory === category.slug}
-              onClick={() => setActiveCategory(category.slug)}
-            >
-              {category.name}
-            </button>
-          ))}
-        </div>
 
         {isLoading ? (
           <p className="catalog-page__status" role="status">
@@ -109,7 +76,7 @@ export default function ProductsPage() {
 
         {!isLoading && !isError ? (
           <section className="catalog-grid" aria-live="polite">
-            {visibleProducts.map((product) => (
+            {products.map((product) => (
               <ProductCard
                 key={product.uuid ?? product.id}
                 product={product}
