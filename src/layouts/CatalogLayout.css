@@ -25,10 +25,11 @@
 
 .catalog-layout__tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
-  overflow-x: auto;
   padding: 1rem 0;
-  scrollbar-width: thin;
+  justify-content: flex-start;
+  align-items: center;
 }
 
 .catalog-layout__tabs a {
@@ -60,7 +61,11 @@
   }
 
   .catalog-layout__tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 0.75rem 0;
     gap: 0.5rem;
+    scrollbar-width: thin;
   }
 }
