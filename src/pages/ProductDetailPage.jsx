@@ -17,12 +17,18 @@ const SPEC_LABELS = {
 };
 
 function renderSpecValue(value) {
-  if (!value) {
-    return "-";
-  }
   if (Array.isArray(value)) {
     return value.length ? value.join(", ") : "-";
   }
+
+  if (typeof value === "string") {
+    return value.trim() || "-";
+  }
+
+  if (!value) {
+    return "-";
+  }
+
   return value;
 }
 
@@ -195,10 +201,10 @@ export default function ProductDetailPage() {
             <section>
               <h2>Ficha técnica</h2>
               <dl className="catalog-detail__specs">
-                {Object.entries(product.specs ?? {}).map(([key, value]) => (
+                {Object.entries(SPEC_LABELS).map(([key, label]) => (
                   <div key={key}>
-                    <dt>{SPEC_LABELS[key] ?? key}</dt>
-                    <dd>{renderSpecValue(value)}</dd>
+                    <dt>{label}</dt>
+                    <dd>{renderSpecValue(product.specs?.[key])}</dd>
                   </div>
                 ))}
               </dl>
