@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { useQuoteModal } from "@/context/QuoteModalContext";
+import { useCatalogCategories, useCatalogProducts } from "@/hooks/useCatalogQueries";
 import "./Home.css";
 
 const WA_NUMBER = "5511999999999";
@@ -20,60 +21,42 @@ const collections = [
   {
     id: "living",
     title: "Living Contemporâneo",
-    description: "Sofás modulares, mesas laterais e aparadores que valorizam linhas puras e acabamentos artesanais.",
+    description:
+      "Sofás modulares, mesas laterais e aparadores que valorizam linhas puras e acabamentos artesanais.",
     image: "/assets/Sofas/Sofas%20(3).png",
+    alt: "Ambiente de estar com sofá modular e mesa lateral",
     tags: ["Sofás", "Mesas laterais"],
+    link: "/produtos/living",
   },
   {
     id: "jantar",
     title: "Jantar Esculpido",
-    description: "Mesas de jantar esculpidas e cadeiras estofadas com tecidos exclusivos e conforto de showroom.",
+    description:
+      "Mesas de jantar esculpidas e cadeiras estofadas com tecidos exclusivos e conforto de showroom.",
     image: "/assets/Mesa%20de%20jantar/Mesa%20de%20jantar%20(5).png",
+    alt: "Mesa de jantar escura com cadeiras estofadas",
     tags: ["Mesas", "Cadeiras"],
+    link: "/produtos/jantar",
   },
   {
     id: "luminos",
     title: "Luzes de Assinatura",
-    description: "Abajures, pendentes e luminárias que finalizam o ambiente com atmosfera acolhedora.",
+    description:
+      "Abajures, pendentes e luminárias que finalizam o ambiente com atmosfera acolhedora.",
     image: "/assets/Abajures/Abajures%20(4).png",
+    alt: "Conjunto de luminárias e abajures premium",
     tags: ["Iluminação", "Decor"],
+    link: "/produtos/iluminacao",
   },
   {
     id: "refugio",
     title: "Refúgio Privativo",
-    description: "Poltronas envolventes, banquetas e peças de apoio que equilibram ergonomia e estética.",
-    image: "/assets/poltronas/poltronas%20(3).png",
+    description:
+      "Poltronas envolventes, banquetas e peças de apoio que equilibram ergonomia e estética.",
+    image: "/assets/poltronas/Poltronas%20(3).png",
+    alt: "Poltrona com banquetas em sala intimista",
     tags: ["Poltronas", "Banquetas"],
-  },
-];
-
-const featuredProducts = [
-  {
-    id: "milano-sofa",
-    name: "Sofá Milano",
-    category: "Living",
-    price: "R$ 12.990",
-    materials: "Madeira certificada, espuma HR e tecido bouclé europeu.",
-    dimensions: "230 × 95 × 85 cm",
-    image: "/assets/Sofas/Sofas%20(6).png",
-  },
-  {
-    id: "oslo-table",
-    name: "Mesa de Jantar Oslo",
-    category: "Jantar",
-    price: "R$ 9.480",
-    materials: "Tampo em lâmina natural e base em aço carbono com pintura eletrostática.",
-    dimensions: "220 × 110 × 75 cm",
-    image: "/assets/Mesas%20laterais/Mesas%20laterais%20(4).png",
-  },
-  {
-    id: "arcos-chair",
-    name: "Poltrona Arcos",
-    category: "Assentos",
-    price: "R$ 5.690",
-    materials: "Estrutura em madeira torneada e estofado em linho italiano.",
-    dimensions: "82 × 78 × 84 cm",
-    image: "/assets/poltronas/poltronas%20(6).png",
+    link: "/produtos/refugio",
   },
 ];
 
@@ -117,6 +100,103 @@ const services = [
 export default function Home() {
   const { open } = useQuoteModal();
   const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const carouselRef = useRef(null);
+
+  const {
+    data: productsData,
+    isLoading: isLoadingProducts,
+    error: productsError,
+  } = useCatalogProducts();
+
+  const { data: categoriesData, error: categoriesError } = useCatalogCategories();
+
+  const products = productsData ?? [];
+  const categories = categoriesData ?? [];
+
+  const categoryMap = useMemo(() => {
+    const map = new Map();
+    categories.forEach((category) => {
+      map.set(category.id, category.name);
+    });
+    return map;
+  }, [categories]);
+
+  const fallbackCollections = useMemo(
+    () => new Map(collections.map((collection) => [collection.id, collection])),
+    []
+  );
+
+  const collectionItems = useMemo(() => {
+    if (!categories.length || categoriesError) {
+      return collections;
+    }
+
+    return categories.map((category, index) => {
+      const fallback =
+        fallbackCollections.get(category.id) ?? collections[index] ?? null;
+
+      return {
+        id: category.id,
+        title: category.name,
+        description:
+          category.description ??
+          category.headline ??
+          fallback?.description ??
+          "Coleção assinada com curadoria exclusiva.",
+        image: category.heroImage ?? fallback?.image ?? "/assets/Sofas/Sofas%20(2).png",
+        alt: category.heroAlt ?? fallback?.alt ?? category.name,
+        tags:
+          category.highlights?.length
+            ? category.highlights
+            : fallback?.tags ?? [],
+        link: `/produtos/${category.slug ?? category.id}`,
+      };
+    });
+  }, [categories, categoriesError, fallbackCollections]);
+
+  const hasProducts = products.length > 0;
+  const productsErrorMessage =
+    productsError instanceof Error
+      ? productsError.message
+      : "Não foi possível carregar os produtos.";
+
+  const carouselStatus = useMemo(() => {
+    if (isLoadingProducts) {
+      return {
+        type: "info",
+        message: "Carregando vitrine de produtos...",
+      };
+    }
+
+    if (productsError) {
+      return {
+        type: "error",
+        message: productsErrorMessage,
+      };
+    }
+
+    if (!hasProducts) {
+      return {
+        type: "empty",
+        message: "Nenhum produto disponível no momento.",
+      };
+    }
+
+    return null;
+  }, [hasProducts, isLoadingProducts, productsError, productsErrorMessage]);
+
+  const scrollCarousel = (direction) => {
+    const node = carouselRef.current;
+    if (!node) return;
+
+    const firstChild = node.firstElementChild;
+    const itemWidth = firstChild?.clientWidth ?? node.clientWidth;
+
+    node.scrollBy({
+      left: direction * itemWidth,
+      behavior: "smooth",
+    });
+  };
 
   return (
     <div className="home">
@@ -171,10 +251,10 @@ export default function Home() {
           </p>
         </header>
         <div className="collection-grid">
-          {collections.map((collection) => (
+          {collectionItems.map((collection) => (
             <article key={collection.id} className="collection-card">
               <div className="collection-card__media">
-                <img src={collection.image} alt={collection.title} loading="lazy" />
+                <img src={collection.image} alt={collection.alt ?? collection.title} loading="lazy" />
               </div>
               <div className="collection-card__body">
                 <h3>{collection.title}</h3>
@@ -186,7 +266,7 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
-                <a className="link" href="/colecoes">
+                <a className="link" href={collection.link ?? "/produtos"}>
                   Ver detalhes da coleção
                 </a>
               </div>
@@ -204,37 +284,94 @@ export default function Home() {
             adaptadas em dimensões e revestimentos.
           </p>
         </header>
-        <div className="product-grid">
-          {featuredProducts.map((product) => (
-            <article key={product.id} className="product-card">
-              <div className="product-card__image">
-                <img src={product.image} alt={product.name} loading="lazy" />
-              </div>
-              <div className="product-card__content">
-                <div className="product-card__heading">
-                  <span>{product.category}</span>
-                  <h3>{product.name}</h3>
-                </div>
-                <p>{product.materials}</p>
-                <ul>
-                  <li>
-                    <strong>Dimensões:</strong> {product.dimensions}
-                  </li>
-                  <li>
-                    <strong>Investimento:</strong> {product.price}
-                  </li>
-                </ul>
-                <div className="product-card__actions">
-                  <a className="btn btn-ghost" href={waLink(product.name)} target="_blank" rel="noreferrer">
-                    Conversar sobre a peça
-                  </a>
-                  <button type="button" className="btn btn-outline--light" onClick={open}>
-                    Solicitar proposta
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
+        <div className="carousel">
+          <div className="carousel__controls">
+            <div className="carousel__summary">
+              {hasProducts ? (
+                <>
+                  <strong>{products.length}</strong>
+                  <span>itens no catálogo</span>
+                </>
+              ) : (
+                <span>Vitrine dinâmica</span>
+              )}
+            </div>
+            <div className="carousel__buttons">
+              <button
+                type="button"
+                className="carousel__button"
+                onClick={() => scrollCarousel(-1)}
+                disabled={!hasProducts}
+                aria-label="Ver produto anterior"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                className="carousel__button"
+                onClick={() => scrollCarousel(1)}
+                disabled={!hasProducts}
+                aria-label="Ver próximo produto"
+              >
+                Próximo
+              </button>
+            </div>
+          </div>
+          {carouselStatus ? (
+            <div
+              className={`carousel__status${
+                carouselStatus.type === "error" ? " carousel__status--error" : ""
+              }`}
+              role={carouselStatus.type === "error" ? "alert" : "status"}
+            >
+              {carouselStatus.message}
+            </div>
+          ) : (
+            <div className="carousel__viewport" ref={carouselRef}>
+              {products.map((product) => {
+                const coverImage = product.media?.[0]?.src ?? "/assets/Sofas/Sofas%20(6).png";
+                const coverAlt = product.media?.[0]?.alt ?? product.name;
+                const categoryLabel = categoryMap.get(product.categoryId) ?? "Coleção exclusiva";
+                const summary =
+                  product.summary ??
+                  product.description ??
+                  "Acabamentos personalizáveis e dimensões sob medida.";
+
+                return (
+                  <article key={product.id} className="carousel__item">
+                    <div className="carousel__media">
+                      <img src={coverImage} alt={coverAlt} loading="lazy" />
+                    </div>
+                    <div className="carousel__body">
+                      <span className="carousel__category">{categoryLabel}</span>
+                      <h3>{product.name}</h3>
+                      <p>{summary}</p>
+                      <div className="carousel__actions">
+                        <a className="btn btn-ghost" href={`/produto/${product.slug}`}>
+                          Ver mais
+                        </a>
+                        <a
+                          className="btn btn-outline--light"
+                          href={waLink(product.name)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Conversar via WhatsApp
+                        </a>
+                        <button
+                          type="button"
+                          className="btn btn-outline--light"
+                          onClick={open}
+                        >
+                          Solicitar proposta
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 
@@ -322,7 +459,7 @@ export default function Home() {
             </div>
           </div>
           <div className="cta-card__visual" aria-hidden>
-            <img src="/assets/cadeiras/cadeiras%20(5).png" alt="Consultora apresentando projeto" loading="lazy" />
+            <img src="/assets/cadeiras/cadeira%20(5).png" alt="Consultora apresentando projeto" loading="lazy" />
           </div>
         </div>
       </section>

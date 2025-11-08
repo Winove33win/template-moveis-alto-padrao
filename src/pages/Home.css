@@ -209,68 +209,151 @@
   color: var(--text-secondary);
 }
 
-.product-grid {
+.carousel {
   display: grid;
-  gap: 2rem;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
 }
 
-.product-card {
+.carousel__controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.carousel__summary {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text-secondary);
+  justify-items: start;
+}
+
+.carousel__summary strong {
+  font-size: 1.15rem;
+  color: var(--text-primary);
+}
+
+.carousel__buttons {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.carousel__button {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.carousel__button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: var(--accent);
+}
+
+.carousel__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.carousel__viewport {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(300px, 1fr);
+  gap: 1.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.75rem;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.carousel__viewport::-webkit-scrollbar {
+  height: 6px;
+}
+
+.carousel__viewport::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+}
+
+.carousel__viewport::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.35);
+  border-radius: 999px;
+}
+
+.carousel__item {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
   background: var(--bg-surface-elevated);
   border-radius: 28px;
   border: 1px solid var(--border-soft);
   overflow: hidden;
   display: grid;
-  grid-template-rows: 220px 1fr;
+  grid-template-rows: minmax(220px, 1fr) auto;
+  min-height: 100%;
 }
 
-.product-card__image img {
+.carousel__media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.product-card__content {
+.carousel__body {
   padding: 1.75rem;
   display: grid;
   gap: 1rem;
 }
 
-.product-card__heading span {
-  font-size: 0.85rem;
-  text-transform: uppercase;
+.carousel__category {
+  font-size: 0.78rem;
   letter-spacing: 0.16em;
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.product-card__heading h3 {
-  margin: 0.4rem 0 0;
-  font-size: 1.5rem;
+.carousel__body h3 {
+  margin: 0;
+  font-size: 1.45rem;
 }
 
-.product-card__content p {
+.carousel__body p {
   margin: 0;
   color: var(--text-secondary);
 }
 
-.product-card__content ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.4rem;
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-}
-
-.product-card__actions {
+.carousel__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
 }
 
-.btn.btn-ghost {
-  padding-inline: 1.35rem;
+.carousel__status {
+  padding: 2.5rem;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 17, 24, 0.35);
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.carousel__status--error {
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .story {
@@ -413,7 +496,6 @@
   }
 
   .collection-grid,
-  .product-grid,
   .story,
   .service-grid,
   .testimonial-grid,
@@ -433,6 +515,16 @@
   .cta-card__actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .carousel__controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .carousel__viewport {
+    grid-auto-columns: minmax(260px, 80%);
   }
 }
 
@@ -475,17 +567,22 @@
   }
 
   .collection-card,
-  .product-card {
+  .carousel__item {
     grid-template-rows: minmax(200px, 1fr) auto;
   }
 
   .collection-card__body,
-  .product-card__content {
+  .carousel__body {
     padding: 1.5rem;
   }
 
   .hero__actions .btn,
-  .cta-card__actions .btn {
+  .cta-card__actions .btn,
+  .carousel__actions .btn {
     width: 100%;
+  }
+
+  .carousel__viewport {
+    grid-auto-columns: minmax(220px, 88%);
   }
 }
