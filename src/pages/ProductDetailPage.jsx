@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import Seo from "@/components/Seo";
 import { useQuoteModal } from "@/context/QuoteModalContext";
+import ImageModal from "@/components/ImageModal";
 import "./Products.css";
 
 const SPEC_LABELS = {
@@ -31,6 +32,9 @@ export default function ProductDetailPage() {
     useOutletContext() ?? {};
   const params = useParams();
   const { open } = useQuoteModal();
+  const [isImageModalOpen, setImageModalOpen] = useState(false);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const lastFocusedTriggerRef = useRef(null);
 
   const isLoading = categoriesQuery?.isLoading || productsQuery?.isLoading;
   const isError = categoriesQuery?.isError || productsQuery?.isError;
@@ -104,6 +108,50 @@ export default function ProductDetailPage() {
     };
   }, [product, category, origin]);
 
+  const normalizedMedia = useMemo(() => {
+    if (!product?.media) {
+      return [];
+    }
+
+    return product.media.map((item) => ({
+      ...item,
+      alt: item.alt ?? product.name,
+    }));
+  }, [product]);
+
+  const handleOpenImageModal = useCallback(
+    (index, target) => {
+      if (!normalizedMedia.length) {
+        return;
+      }
+
+      lastFocusedTriggerRef.current = target;
+      setActiveMediaIndex(index);
+      setImageModalOpen(true);
+    },
+    [normalizedMedia.length]
+  );
+
+  const handleCloseImageModal = useCallback(() => {
+    setImageModalOpen(false);
+
+    const focusTarget = lastFocusedTriggerRef.current;
+
+    if (!focusTarget) {
+      return;
+    }
+
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => {
+        focusTarget.focus();
+      });
+    } else {
+      setTimeout(() => {
+        focusTarget.focus();
+      }, 0);
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <div className="catalog-page">
@@ -165,9 +213,22 @@ export default function ProductDetailPage() {
 
         <article className="catalog-detail">
           <div className="catalog-detail__gallery">
-            {product.media?.map((item) => (
-              <figure key={item.src}>
-                <img src={item.src} alt={item.alt ?? product.name} loading="lazy" />
+            {normalizedMedia.map((item, index) => (
+              <figure
+                key={item.src}
+                role="button"
+                tabIndex={0}
+                aria-label={`Ampliar imagem ${index + 1} de ${normalizedMedia.length}`}
+                aria-haspopup="dialog"
+                onClick={(event) => handleOpenImageModal(index, event.currentTarget)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleOpenImageModal(index, event.currentTarget);
+                  }
+                }}
+              >
+                <img src={item.src} alt={item.alt} loading="lazy" />
               </figure>
             ))}
           </div>
@@ -205,6 +266,13 @@ export default function ProductDetailPage() {
             </section>
           </div>
         </article>
+
+        <ImageModal
+          isOpen={isImageModalOpen}
+          media={normalizedMedia}
+          initialIndex={activeMediaIndex}
+          onClose={handleCloseImageModal}
+        />
 
         <section className="catalog-related">
           <header>
