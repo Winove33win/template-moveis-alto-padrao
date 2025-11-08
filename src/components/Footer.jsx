@@ -16,8 +16,8 @@ export function Footer() {
         <nav aria-label="Rodapé" className="footer-nav">
           <span>Navegue</span>
           <NavLink to="/">Início</NavLink>
-          <NavLink to="/colecoes">Coleções</NavLink>
           <NavLink to="/ambientes">Ambientes</NavLink>
+          <NavLink to="/produtos">Produtos</NavLink>
           <NavLink to="/sobre">Sobre</NavLink>
           <NavLink to="/consultoria">Consultoria</NavLink>
         </nav>

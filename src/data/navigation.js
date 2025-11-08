@@ -2,7 +2,6 @@ import { productCategories as catalogCategories } from "./products";
 
 export const navItems = [
   { label: "Início", to: "/" },
-  { label: "Coleções", to: "/colecoes" },
   { label: "Ambientes", to: "/ambientes" },
   { label: "Sobre", to: "/sobre" },
   { label: "Consultoria", to: "/consultoria" },
