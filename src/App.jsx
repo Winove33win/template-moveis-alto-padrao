@@ -10,6 +10,7 @@ import TermsOfUse from "@/pages/TermsOfUse";
 import ProductsPage from "@/pages/ProductsPage";
 import ProductsCategoryPage from "@/pages/ProductsCategoryPage";
 import ProductDetailPage from "@/pages/ProductDetailPage";
+import AdminProducts from "@/pages/admin/AdminProducts";
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
         <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />
         <Route path="/termos-de-uso" element={<TermsOfUse />} />
       </Route>
+      <Route path="/admin/produtos" element={<AdminProducts />} />
     </Routes>
   );
 }
