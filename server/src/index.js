@@ -237,9 +237,18 @@ async function authenticate(req, res, next) {
 const apiRouter = express.Router();
 const authRouter = express.Router();
 const catalogRouter = express.Router();
+const adminRouter = express.Router();
 
 apiRouter.get("/health", (_req, res) => {
   res.json({ status: "ok" });
+});
+
+adminRouter.get("/session", authenticate, (req, res) => {
+  res.json({ authenticated: true, user: req.user });
+});
+
+adminRouter.post("/logout", (_req, res) => {
+  res.json({ success: true });
 });
 
 authRouter.post("/login", async (req, res, next) => {
@@ -886,6 +895,9 @@ catalogRouter.delete("/products/:productId", authenticate, async (req, res, next
 
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/catalog", catalogRouter);
+adminRouter.use("/catalog", catalogRouter);
+adminRouter.use("/", authRouter);
+apiRouter.use("/admin", adminRouter);
 
 app.use(API_PREFIX, apiRouter);
 
