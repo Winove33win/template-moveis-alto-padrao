@@ -220,6 +220,50 @@ async function replaceSimpleList(connection, table, column, productId, values = 
   );
 }
 
+async function fetchCategories() {
+  const [categoryRows] = await pool.query(
+    `SELECT id, slug, name, headline, description, hero_image AS heroImage, hero_alt AS heroAlt, seo_title AS seoTitle, seo_description AS seoDescription, position
+       FROM catalog_categories
+       ORDER BY position ASC`
+  );
+
+  const categoryIds = categoryRows.map((row) => row.id);
+  const highlightsByCategory = new Map();
+
+  if (categoryIds.length) {
+    const [highlightRows] = await pool.query(
+      `SELECT category_id AS categoryId, text
+         FROM category_highlights
+         WHERE category_id IN (?)
+         ORDER BY id ASC`,
+      [categoryIds]
+    );
+
+    highlightRows.forEach((highlight) => {
+      const items = highlightsByCategory.get(highlight.categoryId) ?? [];
+      items.push(highlight.text);
+      highlightsByCategory.set(highlight.categoryId, items);
+    });
+  }
+
+  return categoryRows.map((row) => ({
+    id: row.slug,
+    uuid: row.id,
+    slug: row.slug,
+    name: row.name,
+    headline: row.headline ?? null,
+    description: row.description ?? null,
+    heroImage: row.heroImage ?? null,
+    heroAlt: row.heroAlt ?? null,
+    seo: {
+      title: row.seoTitle ?? null,
+      description: row.seoDescription ?? null,
+    },
+    highlights: highlightsByCategory.get(row.id) ?? [],
+    position: row.position ?? 0,
+  }));
+}
+
 async function fetchProducts({ categorySlug, productId } = {}) {
   const filters = [];
   const params = [];
@@ -919,51 +963,10 @@ process.on("uncaughtException", (error) => {
       }
     });
 
-    app.get("/api/catalog/categories", async (_req, res) => {
+    const categoryRoutes = ["/api/catalog/categories", "/api/categorias"];
+    app.get(categoryRoutes, async (_req, res) => {
       try {
-        const [categoryRows] = await pool.query(
-          `SELECT id, slug, name, headline, description, hero_image AS heroImage, hero_alt AS heroAlt, seo_title AS seoTitle, seo_description AS seoDescription, position
-           FROM catalog_categories
-           ORDER BY position ASC`
-        );
-
-        const categoryIds = categoryRows.map((row) => row.id);
-
-        let highlightsByCategory = new Map();
-        if (categoryIds.length) {
-          const [highlightRows] = await pool.query(
-            `SELECT category_id AS categoryId, text
-             FROM category_highlights
-             WHERE category_id IN (?)
-             ORDER BY id ASC`,
-            [categoryIds]
-          );
-
-          highlightsByCategory = highlightRows.reduce((map, highlight) => {
-            const items = map.get(highlight.categoryId) ?? [];
-            items.push(highlight.text);
-            map.set(highlight.categoryId, items);
-            return map;
-          }, new Map());
-        }
-
-        const categories = categoryRows.map((row) => ({
-          id: row.slug,
-          uuid: row.id,
-          slug: row.slug,
-          name: row.name,
-          headline: row.headline ?? null,
-          description: row.description ?? null,
-          heroImage: row.heroImage ?? null,
-          heroAlt: row.heroAlt ?? null,
-          seo: {
-            title: row.seoTitle ?? null,
-            description: row.seoDescription ?? null,
-          },
-          highlights: highlightsByCategory.get(row.id) ?? [],
-          position: row.position ?? 0,
-        }));
-
+        const categories = await fetchCategories();
         res.json(categories);
       } catch (error) {
         console.error("[API CATALOG CATEGORIES ERRO]", error);
@@ -1121,8 +1124,10 @@ process.on("uncaughtException", (error) => {
       }
     });
 
-    app.get("/api/catalog/products", async (req, res) => {
-      const { category: categorySlug } = req.query;
+    const productRoutes = ["/api/catalog/products", "/api/produtos"];
+    app.get(productRoutes, async (req, res) => {
+      const categorySlug =
+        req.query?.category ?? req.query?.categoria ?? req.query?.categorySlug ?? req.query?.slug ?? null;
 
       try {
         const products = await fetchProducts({ categorySlug });
