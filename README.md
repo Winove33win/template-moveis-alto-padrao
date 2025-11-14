@@ -36,6 +36,9 @@ Environment variables can be stored in the root `.env` file.
 | Variable | Description | Default |
 | --- | --- | --- |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | MariaDB connection settings consumed by the catalog API. | — |
+| `DB_SOCKET_PATH` | Optional Unix socket path for MySQL/MariaDB. When set, `DB_HOST`/`DB_PORT` become optional. | — |
+| `DB_POOL_LIMIT`, `DB_QUEUE_LIMIT` | Fine tune the MySQL connection pool (connections and pending queue). | `10`, `0` |
+| `DB_CONNECT_RETRIES`, `DB_CONNECT_RETRY_DELAY_MS` | Control how many times (and how often) the server retries the DB handshake before aborting. | `5`, `2000` |
 | `DATABASE_URL` | Prisma connection string derived from the values above. | — |
 | `SERVER_PORT` | Port used by the catalog API (`server/`). | `4000` |
 | `CATALOG_API_URL` | Origin used by the Express proxy (`app.js`) and Vite dev server to forward `/api` requests to the catalog backend. **Production deployments must set this to the live Catalog API origin.** | `http://localhost:4000` |
@@ -46,6 +49,13 @@ Environment variables can be stored in the root `.env` file.
 If you run the catalog API locally (`npm install && npm run dev` inside the
 `server/` folder), the defaults above will let the front-end communicate with it
 immediately.
+
+### Health check endpoint
+
+Production deploys can monitor `GET /healthz`, which performs a simple
+`SELECT 1` against the configured database. The route returns `{ "status": "ok" }`
+when the pool is healthy or `500` with `status: "error"` if the database is not
+reachable, making it suitable for uptime monitors and Passenger health checks.
 
 ### Production deployment tips
 

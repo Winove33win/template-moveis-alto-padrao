@@ -7,10 +7,13 @@ const mysql = require("mysql2/promise");
 
 const multer = require("multer");
 const fs = require("fs");
+const dotenv = require("dotenv");
 
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { randomUUID } = require("crypto");
+
+dotenv.config({ path: path.resolve(__dirname, ".env") });
 
 const requiredEnv = [
   "DB_HOST",
@@ -20,12 +23,33 @@ const requiredEnv = [
   "DB_NAME",
 ];
 
-for (const variable of requiredEnv) {
-  if (!process.env[variable]) {
-    console.error(`[FALTANDO ENV] ${variable}`);
+function toInteger(value, defaultValue) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : defaultValue;
+}
+
+function validateEnvVariables() {
+  const requiresHost = !process.env.DB_SOCKET_PATH;
+  const envToValidate = requiresHost
+    ? requiredEnv
+    : requiredEnv.filter((variable) => !["DB_HOST", "DB_PORT"].includes(variable));
+  const missingVariables = envToValidate.filter((variable) => !process.env[variable]);
+  const hasJwtSecret = Boolean(process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET);
+
+  if (!hasJwtSecret) {
+    missingVariables.push("JWT_SECRET ou ADMIN_JWT_SECRET");
+  }
+
+  if (missingVariables.length) {
+    missingVariables.forEach((variable) => console.error(`[FALTANDO ENV] ${variable}`));
+    console.error(
+      "Defina as variáveis obrigatórias no painel/arquivo .env antes de iniciar o servidor."
+    );
     process.exit(1);
   }
 }
+
+validateEnvVariables();
 
 
 const fsPromises = fs.promises;
@@ -380,28 +404,86 @@ async function fetchProducts({ categorySlug, productId } = {}) {
   }));
 }
 
+const DB_SOCKET_PATH = process.env.DB_SOCKET_PATH;
+const DB_POOL_LIMIT = Math.max(1, toInteger(process.env.DB_POOL_LIMIT, 10));
+const DB_QUEUE_LIMIT = Math.max(0, toInteger(process.env.DB_QUEUE_LIMIT, 0));
+const DB_CONNECT_RETRIES = Math.max(1, toInteger(process.env.DB_CONNECT_RETRIES, 5));
+const DB_CONNECT_RETRY_DELAY_MS = Math.max(
+  0,
+  toInteger(process.env.DB_CONNECT_RETRY_DELAY_MS, 2000)
+);
+
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET;
-
-if (!JWT_SECRET) {
-  console.error("[FALTANDO ENV] JWT_SECRET ou ADMIN_JWT_SECRET");
-  process.exit(1);
-}
-
 const TOKEN_EXPIRATION = process.env.JWT_EXPIRATION || "2h";
-const SALT_ROUNDS = Number.parseInt(process.env.BCRYPT_SALT_ROUNDS || "10", 10);
+const SALT_ROUNDS = toInteger(process.env.BCRYPT_SALT_ROUNDS, 10);
 
-
-async function createPool() {
-  return mysql.createPool({
-    host: process.env.DB_HOST,
-    port: Number(process.env.DB_PORT),
+function buildPoolConfig() {
+  const baseConfig = {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-  });
+    connectionLimit: DB_POOL_LIMIT,
+    queueLimit: DB_QUEUE_LIMIT,
+  };
+
+  if (DB_SOCKET_PATH) {
+    return { ...baseConfig, socketPath: DB_SOCKET_PATH };
+  }
+
+  return {
+    ...baseConfig,
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT),
+  };
+}
+
+async function createPool() {
+  return mysql.createPool(buildPoolConfig());
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function initializePoolWithRetry() {
+  let attempt = 0;
+  let lastError;
+
+  while (attempt < DB_CONNECT_RETRIES) {
+    attempt += 1;
+
+    let candidatePool;
+    try {
+      candidatePool = await createPool();
+      await candidatePool.query("SELECT 1");
+      if (attempt > 1) {
+        console.log(`✅ Conectado ao banco após ${attempt} tentativas`);
+      }
+      return candidatePool;
+    } catch (error) {
+      lastError = error;
+      if (typeof candidatePool?.end === "function") {
+        candidatePool.end().catch((endError) => {
+          console.warn("[DB POOL CLEANUP ERRO]", endError);
+        });
+      }
+      console.error(
+        `[DB CONNECTION ERROR] Tentativa ${attempt}/${DB_CONNECT_RETRIES} falhou:`,
+        error?.message || error
+      );
+      if (attempt >= DB_CONNECT_RETRIES) {
+        break;
+      }
+      await sleep(DB_CONNECT_RETRY_DELAY_MS);
+    }
+  }
+
+  console.error("Não foi possível estabelecer conexão com o banco de dados.");
+  if (lastError) {
+    console.error(lastError);
+  }
+  process.exit(1);
 }
 
 let pool;
@@ -421,7 +503,7 @@ process.on("uncaughtException", (error) => {
     const distPath = path.join(__dirname, "dist");
     const indexFile = path.join(distPath, "index.html");
 
-    pool = await createPool();
+    pool = await initializePoolWithRetry();
 
     function mapCategoryRow(row, highlights = []) {
       return {
@@ -1359,6 +1441,16 @@ process.on("uncaughtException", (error) => {
       } catch (error) {
         console.error("[API UPLOAD CLEANUP ERRO]", error);
         res.status(500).json({ error: "Erro ao limpar uploads" });
+      }
+    });
+
+    app.get("/healthz", async (_req, res) => {
+      try {
+        await pool.query("SELECT 1");
+        res.json({ status: "ok" });
+      } catch (error) {
+        console.error("[HEALTHCHECK ERROR]", error);
+        res.status(500).json({ status: "error", message: "Banco de dados indisponível" });
       }
     });
 
