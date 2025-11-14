@@ -1,4 +1,47 @@
 const DEFAULT_BASE_URL = "/api";
+const TOKEN_STORAGE_KEY = "adminAuthToken";
+
+let authToken = null;
+
+function isBrowser() {
+  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function loadStoredToken() {
+  if (authToken) {
+    return authToken;
+  }
+
+  if (!isBrowser()) {
+    return null;
+  }
+
+  authToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+  return authToken;
+}
+
+function setAuthToken(token) {
+  authToken = token ?? null;
+
+  if (!isBrowser()) {
+    return;
+  }
+
+  if (authToken) {
+    window.localStorage.setItem(TOKEN_STORAGE_KEY, authToken);
+  } else {
+    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+  }
+}
+
+function getAuthToken() {
+  return loadStoredToken();
+}
+
+function getAuthHeaders() {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 function getBaseUrl() {
   const base = import.meta.env?.VITE_API_BASE_URL ?? DEFAULT_BASE_URL;
@@ -76,6 +119,10 @@ export async function createProduct(product) {
   const response = await fetch(buildUrl("/catalog/products"), {
     method: "POST",
     body: prepareProductFormData(product),
+    headers: {
+      ...getAuthHeaders(),
+    },
+    credentials: "include",
   });
 
   return handleResponse(response);
@@ -85,6 +132,10 @@ export async function updateProduct(productId, product) {
   const response = await fetch(buildUrl(`/catalog/products/${productId}`), {
     method: "PUT",
     body: prepareProductFormData(product),
+    headers: {
+      ...getAuthHeaders(),
+    },
+    credentials: "include",
   });
 
   return handleResponse(response);
@@ -93,16 +144,22 @@ export async function updateProduct(productId, product) {
 export async function cleanupOrphanUploads() {
   const response = await fetch(buildUrl("/uploads/cleanup"), {
     method: "POST",
+    headers: {
+      ...getAuthHeaders(),
+    },
+    credentials: "include",
   });
 
   return handleResponse(response);
 }
 
 async function fetchJson(url, options) {
+  const authHeaders = getAuthHeaders();
   const response = await fetch(url, {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders,
       ...(options?.headers ?? {}),
     },
     ...options,
@@ -132,18 +189,28 @@ export function getAdminSession() {
   return fetchJson(buildUrl("/admin/session"), { method: "GET" });
 }
 
-export function loginAdmin(credentials) {
-  return fetchJson(buildUrl("/admin/login"), {
+export async function loginAdmin(credentials) {
+  const session = await fetchJson(buildUrl("/admin/login"), {
     method: "POST",
     body: JSON.stringify(credentials),
   });
+
+  if (session?.token) {
+    setAuthToken(session.token);
+  }
+
+  return session;
 }
 
-export function logoutAdmin() {
-  return fetchJson(buildUrl("/admin/logout"), {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
+export async function logoutAdmin() {
+  try {
+    return await fetchJson(buildUrl("/admin/logout"), {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  } finally {
+    setAuthToken(null);
+  }
 }
 
 export function createCatalogCategory(data) {
