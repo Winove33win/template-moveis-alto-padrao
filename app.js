@@ -1149,13 +1149,6 @@ process.on("uncaughtException", (error) => {
           const resolvedMedia = resolveMediaPayload(payload.media ?? [], req.files ?? []);
           const specs = payload?.specs ?? {};
 
-        const mediaByProduct = new Map();
-        const materialsByProduct = new Map();
-        const finishOptionsByProduct = new Map();
-        const customizationsByProduct = new Map();
-        const assetsByProduct = new Map();
-
-
           const productId = await withTransaction(async (connection) => {
             const newProductId = randomUUID();
             await connection.query(
@@ -1201,38 +1194,6 @@ process.on("uncaughtException", (error) => {
             );
 
             return newProductId;
-
-          const [assetRows] = await pool.query(
-            `SELECT product_id AS productId, id, type, url, title, description
-             FROM product_assets
-             WHERE product_id IN (?)
-             ORDER BY id ASC`,
-            [productIds]
-          );
-          assetRows.forEach((asset) => {
-            const items = assetsByProduct.get(asset.productId) ?? [];
-            items.push({
-              id: asset.id,
-              type: asset.type,
-              url: asset.url,
-              title: asset.title ?? null,
-              description: asset.description ?? null,
-            });
-            assetsByProduct.set(asset.productId, items);
-          });
-
-          const [materialRows] = await pool.query(
-            `SELECT product_id AS productId, name
-             FROM product_materials
-             WHERE product_id IN (?)
-             ORDER BY id ASC`,
-            [productIds]
-          );
-          materialRows.forEach((material) => {
-            const items = materialsByProduct.get(material.productId) ?? [];
-            items.push(material.name);
-            materialsByProduct.set(material.productId, items);
-
           });
 
           const [created] = await fetchProducts({ productId });
