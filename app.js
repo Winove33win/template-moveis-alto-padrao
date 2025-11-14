@@ -4,6 +4,10 @@ const path = require("path");
 const compression = require("compression");
 const helmet = require("helmet");
 const mysql = require("mysql2/promise");
+
+const multer = require("multer");
+const fs = require("fs");
+
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { randomUUID } = require("crypto");
@@ -23,6 +27,315 @@ for (const variable of requiredEnv) {
   }
 }
 
+
+const fsPromises = fs.promises;
+const uploadsDir = path.join(__dirname, "public", "uploads");
+fs.mkdirSync(uploadsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: uploadsDir,
+  filename: (_req, file, callback) => {
+    const timestamp = Date.now();
+    const uniqueSuffix = `${timestamp}-${Math.round(Math.random() * 1e9)}`;
+    const extension = path.extname(file.originalname);
+    const sanitizedBase = path
+      .basename(file.originalname, extension)
+      .replace(/[^a-z0-9_-]/gi, "")
+      .slice(0, 40);
+    const baseName = sanitizedBase || "media";
+    callback(null, `${baseName}-${uniqueSuffix}${extension}`);
+  },
+});
+
+const upload = multer({ storage });
+
+function normalizeText(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeList(value) {
+  if (!value) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((item) => Boolean(item));
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/[\n,]/)
+      .map((item) => item.trim())
+      .filter((item) => Boolean(item));
+  }
+  return [];
+}
+
+function parseProductPayload(body) {
+  const rawPayload = body?.payload ?? body?.data ?? null;
+  if (!rawPayload) {
+    return {};
+  }
+
+  if (typeof rawPayload === "object") {
+    return rawPayload;
+  }
+
+  try {
+    return JSON.parse(rawPayload);
+  } catch (error) {
+    const parseError = new Error("Payload inválido - JSON malformado");
+    parseError.status = 400;
+    throw parseError;
+  }
+}
+
+function resolveMediaPayload(mediaPayload = [], files = []) {
+  return mediaPayload.map((item, index) => {
+    const alt = normalizeText(item?.alt);
+    const fileIndex =
+      typeof item?.fileIndex === "number" && Number.isFinite(item.fileIndex)
+        ? item.fileIndex
+        : null;
+
+    if (fileIndex !== null) {
+      const file = files[fileIndex];
+      if (!file) {
+        const error = new Error(`Arquivo de mídia não encontrado para o índice ${fileIndex}`);
+        error.status = 400;
+        throw error;
+      }
+      return {
+        position: index,
+        src: path.posix.join("/uploads", file.filename),
+        alt,
+        filename: file.filename,
+      };
+    }
+
+    if (!item?.src) {
+      const error = new Error("Cada mídia deve possuir um caminho existente ou um arquivo enviado");
+      error.status = 400;
+      throw error;
+    }
+
+    let source = item.src;
+    if (typeof source === "string" && source.includes("/uploads/")) {
+      const start = source.indexOf("/uploads/");
+      source = source.slice(start);
+    }
+
+    return {
+      position: index,
+      src: source,
+      alt,
+    };
+  });
+}
+
+async function cleanupUploadedFiles(files = []) {
+  await Promise.all(
+    files.map((file) =>
+      fsPromises.unlink(file.path).catch((error) => {
+        if (error.code !== "ENOENT") {
+          console.warn(`Falha ao remover upload temporário ${file.filename}:`, error);
+        }
+      })
+    )
+  );
+}
+
+async function deleteUploadsForMedia(mediaItems = []) {
+  const deletions = mediaItems
+    .map((item) => item?.src)
+    .filter((src) => typeof src === "string" && src.startsWith("/uploads/"))
+    .map((src) => path.basename(src))
+    .filter((filename) => Boolean(filename) && filename !== ".gitkeep")
+    .map(async (filename) => {
+      const filePath = path.join(uploadsDir, filename);
+      try {
+        await fsPromises.unlink(filePath);
+      } catch (error) {
+        if (error.code !== "ENOENT") {
+          console.warn(`Falha ao remover arquivo ${filename}:`, error);
+        }
+      }
+    });
+
+  await Promise.all(deletions);
+}
+
+async function withTransaction(callback) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const result = await callback(connection);
+    await connection.commit();
+    return result;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+async function replaceProductMedia(connection, productId, mediaItems = []) {
+  await connection.query("DELETE FROM product_media WHERE product_id = ?", [productId]);
+  if (!mediaItems.length) {
+    return;
+  }
+
+  const placeholders = mediaItems.map(() => "(?, ?, ?, ?)").join(", ");
+  const params = [];
+  mediaItems.forEach((item) => {
+    params.push(productId, item.position, item.src, item.alt ?? null);
+  });
+
+  await connection.query(
+    `INSERT INTO product_media (product_id, position, src, alt) VALUES ${placeholders}`,
+    params
+  );
+}
+
+async function replaceSimpleList(connection, table, column, productId, values = []) {
+  await connection.query(`DELETE FROM ${table} WHERE product_id = ?`, [productId]);
+  if (!values.length) {
+    return;
+  }
+
+  const placeholders = values.map(() => "(?, ?)").join(", ");
+  const params = [];
+  values.forEach((value) => {
+    params.push(productId, value);
+  });
+
+  await connection.query(
+    `INSERT INTO ${table} (product_id, ${column}) VALUES ${placeholders}`,
+    params
+  );
+}
+
+async function fetchProducts({ categorySlug, productId } = {}) {
+  const filters = [];
+  const params = [];
+
+  if (categorySlug) {
+    filters.push("c.slug = ?");
+    params.push(categorySlug);
+  }
+
+  if (productId) {
+    filters.push("p.id = ?");
+    params.push(productId);
+  }
+
+  const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+
+  const [productRows] = await pool.query(
+    `SELECT p.id, p.slug, p.category_id AS categoryUuid, c.slug AS categorySlug, p.name, p.summary, p.description, p.designer, p.dimensions, p.light_source AS lightSource, p.lead_time AS leadTime, p.warranty
+       FROM products p
+       LEFT JOIN catalog_categories c ON c.id = p.category_id
+       ${whereClause}
+       ORDER BY p.name ASC`,
+    params
+  );
+
+  if (!productRows.length) {
+    return [];
+  }
+
+  const productIds = productRows.map((row) => row.id);
+
+  const mediaByProduct = new Map();
+  const materialsByProduct = new Map();
+  const finishOptionsByProduct = new Map();
+  const customizationsByProduct = new Map();
+
+  const [mediaRows] = await pool.query(
+    `SELECT id, product_id AS productId, src, alt, position
+       FROM product_media
+       WHERE product_id IN (?)
+       ORDER BY position ASC`,
+    [productIds]
+  );
+  mediaRows.forEach((media) => {
+    const items = mediaByProduct.get(media.productId) ?? [];
+    items.push({
+      id: media.id,
+      src: media.src,
+      alt: media.alt ?? null,
+      order: media.position,
+    });
+    mediaByProduct.set(media.productId, items);
+  });
+
+  const [materialRows] = await pool.query(
+    `SELECT product_id AS productId, name
+       FROM product_materials
+       WHERE product_id IN (?)
+       ORDER BY id ASC`,
+    [productIds]
+  );
+  materialRows.forEach((material) => {
+    const items = materialsByProduct.get(material.productId) ?? [];
+    items.push(material.name);
+    materialsByProduct.set(material.productId, items);
+  });
+
+  const [finishRows] = await pool.query(
+    `SELECT product_id AS productId, name
+       FROM product_finish_options
+       WHERE product_id IN (?)
+       ORDER BY id ASC`,
+    [productIds]
+  );
+  finishRows.forEach((finish) => {
+    const items = finishOptionsByProduct.get(finish.productId) ?? [];
+    items.push(finish.name);
+    finishOptionsByProduct.set(finish.productId, items);
+  });
+
+  const [customRows] = await pool.query(
+    `SELECT product_id AS productId, description
+       FROM product_customizations
+       WHERE product_id IN (?)
+       ORDER BY id ASC`,
+    [productIds]
+  );
+  customRows.forEach((customization) => {
+    const items = customizationsByProduct.get(customization.productId) ?? [];
+    items.push(customization.description);
+    customizationsByProduct.set(customization.productId, items);
+  });
+
+  return productRows.map((row) => ({
+    id: row.slug ?? row.id,
+    uuid: row.id,
+    slug: row.slug ?? row.id,
+    categoryId: row.categorySlug ?? row.categoryUuid,
+    categoryUuid: row.categoryUuid,
+    name: row.name,
+    summary: row.summary ?? null,
+    description: row.description ?? null,
+    media: (mediaByProduct.get(row.id) ?? []).sort((a, b) => a.order - b.order),
+    specs: {
+      designer: row.designer ?? null,
+      dimensions: row.dimensions ?? null,
+      materials: materialsByProduct.get(row.id) ?? [],
+      finishOptions: finishOptionsByProduct.get(row.id) ?? [],
+      lightSource: row.lightSource ?? null,
+      leadTime: row.leadTime ?? null,
+      warranty: row.warranty ?? null,
+      customization: customizationsByProduct.get(row.id) ?? [],
+    },
+  }));
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_JWT_SECRET;
 
 if (!JWT_SECRET) {
@@ -32,6 +345,7 @@ if (!JWT_SECRET) {
 
 const TOKEN_EXPIRATION = process.env.JWT_EXPIRATION || "2h";
 const SALT_ROUNDS = Number.parseInt(process.env.BCRYPT_SALT_ROUNDS || "10", 10);
+
 
 async function createPool() {
   return mysql.createPool({
@@ -45,6 +359,8 @@ async function createPool() {
     queueLimit: 0,
   });
 }
+
+let pool;
 
 process.on("unhandledRejection", (error) => {
   console.error("[UNHANDLED REJECTION]", error);
@@ -61,7 +377,7 @@ process.on("uncaughtException", (error) => {
     const distPath = path.join(__dirname, "dist");
     const indexFile = path.join(distPath, "index.html");
 
-    const pool = await createPool();
+    pool = await createPool();
 
     function mapCategoryRow(row, highlights = []) {
       return {
@@ -395,6 +711,9 @@ process.on("uncaughtException", (error) => {
 
     app.use(helmet({ contentSecurityPolicy: false }));
     app.use(compression());
+
+    app.use("/uploads", express.static(uploadsDir));
+
     app.use(express.json());
 
     app.post("/api/auth/login", async (req, res) => {
@@ -468,6 +787,7 @@ process.on("uncaughtException", (error) => {
         res.status(500).json({ message: "Erro ao atualizar senha" });
       }
     });
+
 
     app.get("/healthz", async (_req, res) => {
       try {
@@ -805,16 +1125,29 @@ process.on("uncaughtException", (error) => {
       const { category: categorySlug } = req.query;
 
       try {
-        const [productRows] = await pool.query(
-          `SELECT p.id, p.slug, p.category_id AS categoryUuid, c.slug AS categorySlug, p.name, p.summary, p.description, p.designer, p.dimensions, p.light_source AS lightSource, p.lead_time AS leadTime, p.warranty
-           FROM products p
-           LEFT JOIN catalog_categories c ON c.id = p.category_id
-           ${categorySlug ? "WHERE c.slug = ?" : ""}
-           ORDER BY p.name ASC`,
-          categorySlug ? [categorySlug] : []
-        );
+        const products = await fetchProducts({ categorySlug });
+        res.json(products);
+      } catch (error) {
+        console.error("[API CATALOG PRODUCTS ERRO]", error);
+        res.status(500).json({ error: "Erro ao buscar produtos" });
+      }
+    });
 
-        const productIds = productRows.map((row) => row.id);
+    app.post(
+      "/api/catalog/products",
+      upload.array("mediaFiles"),
+      async (req, res) => {
+        try {
+          const payload = parseProductPayload(req.body);
+          if (!payload?.name || !payload?.slug || !payload?.categoryId) {
+            return res
+              .status(400)
+              .json({ error: "Campos obrigatórios ausentes: nome, slug ou categoria" });
+          }
+
+
+          const resolvedMedia = resolveMediaPayload(payload.media ?? [], req.files ?? []);
+          const specs = payload?.specs ?? {};
 
         const mediaByProduct = new Map();
         const materialsByProduct = new Map();
@@ -822,23 +1155,52 @@ process.on("uncaughtException", (error) => {
         const customizationsByProduct = new Map();
         const assetsByProduct = new Map();
 
-        if (productIds.length) {
-          const [mediaRows] = await pool.query(
-            `SELECT product_id AS productId, src, alt, position
-             FROM product_media
-             WHERE product_id IN (?)
-             ORDER BY position ASC`,
-            [productIds]
-          );
-          mediaRows.forEach((media) => {
-            const items = mediaByProduct.get(media.productId) ?? [];
-            items.push({
-              src: media.src,
-              alt: media.alt ?? null,
-              order: media.position,
-            });
-            mediaByProduct.set(media.productId, items);
-          });
+
+          const productId = await withTransaction(async (connection) => {
+            const newProductId = randomUUID();
+            await connection.query(
+              `INSERT INTO products (id, slug, category_id, name, summary, description, designer, dimensions, light_source, lead_time, warranty)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                newProductId,
+                payload.slug,
+                payload.categoryId,
+                payload.name,
+                normalizeText(payload.summary),
+                normalizeText(payload.description),
+                normalizeText(specs.designer),
+                normalizeText(specs.dimensions),
+                normalizeText(specs.lightSource),
+                normalizeText(specs.leadTime),
+                normalizeText(specs.warranty),
+              ]
+            );
+
+
+            await replaceProductMedia(connection, newProductId, resolvedMedia);
+            await replaceSimpleList(
+              connection,
+              "product_materials",
+              "name",
+              newProductId,
+              normalizeList(specs.materials)
+            );
+            await replaceSimpleList(
+              connection,
+              "product_finish_options",
+              "name",
+              newProductId,
+              normalizeList(specs.finishOptions)
+            );
+            await replaceSimpleList(
+              connection,
+              "product_customizations",
+              "description",
+              newProductId,
+              normalizeList(specs.customization)
+            );
+
+            return newProductId;
 
           const [assetRows] = await pool.query(
             `SELECT product_id AS productId, id, type, url, title, description
@@ -870,34 +1232,122 @@ process.on("uncaughtException", (error) => {
             const items = materialsByProduct.get(material.productId) ?? [];
             items.push(material.name);
             materialsByProduct.set(material.productId, items);
+
           });
 
-          const [finishRows] = await pool.query(
-            `SELECT product_id AS productId, name
-             FROM product_finish_options
-             WHERE product_id IN (?)
-             ORDER BY id ASC`,
-            [productIds]
-          );
-          finishRows.forEach((finish) => {
-            const items = finishOptionsByProduct.get(finish.productId) ?? [];
-            items.push(finish.name);
-            finishOptionsByProduct.set(finish.productId, items);
-          });
-
-          const [customRows] = await pool.query(
-            `SELECT product_id AS productId, description
-             FROM product_customizations
-             WHERE product_id IN (?)
-             ORDER BY id ASC`,
-            [productIds]
-          );
-          customRows.forEach((customization) => {
-            const items = customizationsByProduct.get(customization.productId) ?? [];
-            items.push(customization.description);
-            customizationsByProduct.set(customization.productId, items);
-          });
+          const [created] = await fetchProducts({ productId });
+          res.status(201).json(created);
+        } catch (error) {
+          await cleanupUploadedFiles(req.files ?? []);
+          console.error("[API CREATE PRODUCT ERRO]", error);
+          const status = Number.isInteger(error.status) ? error.status : 500;
+          res.status(status).json({ error: error.message ?? "Erro ao criar produto" });
         }
+      }
+    );
+
+    app.put(
+      "/api/catalog/products/:productId",
+      upload.array("mediaFiles"),
+      async (req, res) => {
+        const { productId } = req.params;
+
+        try {
+          const [existing] = await fetchProducts({ productId });
+          if (!existing) {
+            return res.status(404).json({ error: "Produto não encontrado" });
+          }
+
+          const payload = parseProductPayload(req.body);
+          if (!payload?.name || !payload?.slug || !payload?.categoryId) {
+            return res
+              .status(400)
+              .json({ error: "Campos obrigatórios ausentes: nome, slug ou categoria" });
+          }
+
+          const resolvedMedia = resolveMediaPayload(payload.media ?? [], req.files ?? []);
+          const specs = payload?.specs ?? {};
+
+          await withTransaction(async (connection) => {
+            await connection.query(
+              `UPDATE products
+                 SET slug = ?,
+                     category_id = ?,
+                     name = ?,
+                     summary = ?,
+                     description = ?,
+                     designer = ?,
+                     dimensions = ?,
+                     light_source = ?,
+                     lead_time = ?,
+                     warranty = ?
+               WHERE id = ?`,
+              [
+                payload.slug,
+                payload.categoryId,
+                payload.name,
+                normalizeText(payload.summary),
+                normalizeText(payload.description),
+                normalizeText(specs.designer),
+                normalizeText(specs.dimensions),
+                normalizeText(specs.lightSource),
+                normalizeText(specs.leadTime),
+                normalizeText(specs.warranty),
+                productId,
+              ]
+            );
+
+            await replaceProductMedia(connection, productId, resolvedMedia);
+            await replaceSimpleList(
+              connection,
+              "product_materials",
+              "name",
+              productId,
+              normalizeList(specs.materials)
+            );
+            await replaceSimpleList(
+              connection,
+              "product_finish_options",
+              "name",
+              productId,
+              normalizeList(specs.finishOptions)
+            );
+            await replaceSimpleList(
+              connection,
+              "product_customizations",
+              "description",
+              productId,
+              normalizeList(specs.customization)
+            );
+          });
+
+          const removedMedia = (existing.media ?? []).filter(
+            (media) => !resolvedMedia.some((item) => item.src === media.src)
+          );
+          await deleteUploadsForMedia(removedMedia);
+
+          const [updated] = await fetchProducts({ productId });
+          res.json(updated);
+        } catch (error) {
+          await cleanupUploadedFiles(req.files ?? []);
+          console.error("[API UPDATE PRODUCT ERRO]", error);
+          const status = Number.isInteger(error.status) ? error.status : 500;
+          res.status(status).json({ error: error.message ?? "Erro ao atualizar produto" });
+        }
+      }
+    );
+
+
+    app.post("/api/uploads/cleanup", async (_req, res) => {
+      try {
+        const filesOnDisk = await fsPromises.readdir(uploadsDir);
+        const [mediaRows] = await pool.query("SELECT src FROM product_media");
+        const referenced = new Set(
+          mediaRows
+            .map((row) => row?.src)
+            .filter((src) => typeof src === "string" && src.startsWith("/uploads/"))
+            .map((src) => path.basename(src))
+        );
 
         const products = productRows.map((row) => ({
           id: row.slug ?? row.id,
@@ -922,10 +1372,27 @@ process.on("uncaughtException", (error) => {
           },
         }));
 
-        res.json(products);
+
+        const removed = [];
+        for (const file of filesOnDisk) {
+          if (file === ".gitkeep") {
+            continue;
+          }
+          const filePath = path.join(uploadsDir, file);
+          const stats = await fsPromises.stat(filePath);
+          if (!stats.isFile()) {
+            continue;
+          }
+          if (!referenced.has(file)) {
+            await fsPromises.unlink(filePath);
+            removed.push(file);
+          }
+        }
+
+        res.json({ removed, totalRemoved: removed.length });
       } catch (error) {
-        console.error("[API CATALOG PRODUCTS ERRO]", error);
-        res.status(500).json({ error: "Erro ao buscar produtos" });
+        console.error("[API UPLOAD CLEANUP ERRO]", error);
+        res.status(500).json({ error: "Erro ao limpar uploads" });
       }
     });
 
