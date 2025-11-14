@@ -40,7 +40,22 @@ Environment variables can be stored in the root `.env` file.
 | `SERVER_PORT` | Port used by the catalog API (`server/`). | `4000` |
 | `CATALOG_API_URL` | Origin used by the Express proxy (`app.js`) and Vite dev server to forward `/api` requests to the catalog backend. **Production deployments must set this to the live Catalog API origin.** | `http://localhost:4000` |
 | `VITE_API_PROXY_TARGET` | Optional override for the Vite dev server proxy target. | Uses `CATALOG_API_URL`/`http://localhost:4000` |
+| `VITE_API_BASE_URL` | Base URL embedded in the front-end bundle for catalog/admin requests. Leave it as `/api` (the Express proxy) or set it to the public Catalog API origin. | `/api` |
+| `JWT_SECRET` / `ADMIN_JWT_SECRET` | Secret used to sign and validate admin JWTs. **One of them must be defined or the Express server terminates on boot.** | — |
 
 If you run the catalog API locally (`npm install && npm run dev` inside the
 `server/` folder), the defaults above will let the front-end communicate with it
 immediately.
+
+### Production deployment tips
+
+- Build-time env files such as `.env.production` should keep `VITE_API_BASE_URL`
+  pointing to `/api` (or your public Catalog API origin). Using
+  `http://localhost:4000` here forces browsers to call the visitor's localhost
+  instead of the Express proxy.
+- When hosting the Express proxy, configure `CATALOG_API_URL` to the real
+  Catalog API origin (or the internal hostname where it runs) so that the `/api`
+  routes reach the right backend service.
+- Always define `JWT_SECRET` (or `ADMIN_JWT_SECRET`) along with your database
+  credentials. The server validates these variables during boot and aborts if
+  any are missing, leading to Passenger/Nginx showing a generic error page.
