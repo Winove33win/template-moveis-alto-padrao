@@ -96,7 +96,8 @@ export async function cleanupOrphanUploads() {
   });
 
   return handleResponse(response);
-=======
+}
+
 async function fetchJson(url, options) {
   const response = await fetch(url, {
     credentials: "include",
