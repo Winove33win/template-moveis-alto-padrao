@@ -55,6 +55,7 @@ model Product {
 
   category       CatalogCategory       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   media          ProductMedia[]
+  assets         ProductAsset[]
   materials      ProductMaterial[]
   finishOptions  ProductFinishOption[]
   customizations ProductCustomization[]
@@ -108,4 +109,30 @@ model ProductCustomization {
 
   @@index([productId])
   @@map("product_customizations")
+}
+
+model ProductAsset {
+  id          Int      @id @default(autoincrement())
+  productId   String   @map("product_id") @db.VarChar(191)
+  type        String   @db.VarChar(100)
+  url         String   @db.VarChar(191)
+  title       String?  @db.VarChar(191)
+  description String?  @db.VarChar(191)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_assets")
+}
+
+model AdminUser {
+  id           String   @id @default(uuid()) @db.VarChar(191)
+  email        String   @unique @db.VarChar(191)
+  passwordHash String   @map("password_hash") @db.VarChar(191)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_users")
 }
