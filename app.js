@@ -499,6 +499,7 @@ process.on("uncaughtException", (error) => {
 (async () => {
   try {
     const app = express();
+    const adminRouter = express.Router();
     const PORT = process.env.PORT || 3000;
     const distPath = path.join(__dirname, "dist");
     const indexFile = path.join(distPath, "index.html");
@@ -835,49 +836,46 @@ process.on("uncaughtException", (error) => {
       });
     }
 
-    app.use(helmet({ contentSecurityPolicy: false }));
-    app.use(compression());
+    function adminLoginHandlerFactory() {
+      return async (req, res) => {
+        try {
+          const { email, password } = req.body ?? {};
 
-    app.use("/uploads", express.static(uploadsDir));
+          if (!email || !password) {
+            return res.status(400).json({ message: "Credenciais obrigatórias" });
+          }
 
-    app.use(express.json());
+          const admin = await findAdminByEmail(email);
 
-    app.post("/api/auth/login", async (req, res) => {
-      try {
-        const { email, password } = req.body ?? {};
+          if (!admin) {
+            return res.status(401).json({ message: "Credenciais inválidas" });
+          }
 
-        if (!email || !password) {
-          return res.status(400).json({ message: "Credenciais obrigatórias" });
+          const passwordMatches = await bcrypt.compare(password, admin.passwordHash);
+
+          if (!passwordMatches) {
+            return res.status(401).json({ message: "Credenciais inválidas" });
+          }
+
+          const token = generateToken(admin);
+
+          res.json({
+            token,
+            user: {
+              id: admin.id,
+              email: admin.email,
+            },
+          });
+        } catch (error) {
+          console.error("[AUTH LOGIN ERRO]", error);
+          res.status(500).json({ message: "Erro ao autenticar" });
         }
+      };
+    }
 
-        const admin = await findAdminByEmail(email);
+    const handleAdminLogin = adminLoginHandlerFactory();
 
-        if (!admin) {
-          return res.status(401).json({ message: "Credenciais inválidas" });
-        }
-
-        const passwordMatches = await bcrypt.compare(password, admin.passwordHash);
-
-        if (!passwordMatches) {
-          return res.status(401).json({ message: "Credenciais inválidas" });
-        }
-
-        const token = generateToken(admin);
-
-        res.json({
-          token,
-          user: {
-            id: admin.id,
-            email: admin.email,
-          },
-        });
-      } catch (error) {
-        console.error("[AUTH LOGIN ERRO]", error);
-        res.status(500).json({ message: "Erro ao autenticar" });
-      }
-    });
-
-    app.post("/api/auth/change-password", authenticate, async (req, res) => {
+    async function handleAdminPasswordChange(req, res) {
       try {
         const { currentPassword, newPassword } = req.body ?? {};
 
@@ -912,7 +910,25 @@ process.on("uncaughtException", (error) => {
         console.error("[AUTH CHANGE PASSWORD ERRO]", error);
         res.status(500).json({ message: "Erro ao atualizar senha" });
       }
-    });
+    }
+
+    function registerAdminAuthRoutes(target, basePath = "") {
+      const prefix = basePath || "";
+      target.post(`${prefix}/auth/login`, handleAdminLogin);
+      target.post(`${prefix}/auth/change-password`, authenticate, handleAdminPasswordChange);
+    }
+
+    registerAdminAuthRoutes(app, "/api");
+    registerAdminAuthRoutes(adminRouter);
+
+    app.use(helmet({ contentSecurityPolicy: false }));
+    app.use(compression());
+
+    app.use("/uploads", express.static(uploadsDir));
+
+    app.use(express.json());
+    app.use("/api/admin", adminRouter);
+    
 
 
     app.get("/healthz", async (_req, res) => {
