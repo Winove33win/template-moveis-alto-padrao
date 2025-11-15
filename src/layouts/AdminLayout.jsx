@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getAdminSession, logoutAdmin } from "@/api/admin";
+import { clearAdminToken, getAdminSession, logoutAdmin } from "@/api/admin";
 
 export function AdminLayout() {
   const location = useLocation();
@@ -13,6 +13,7 @@ export function AdminLayout() {
     data: session,
     isLoading,
     isError,
+    error,
   } = useQuery({
     queryKey: ["admin", "session"],
     queryFn: getAdminSession,
@@ -20,6 +21,12 @@ export function AdminLayout() {
   });
 
   const isAuthenticated = Boolean(session?.authenticated ?? session?.user);
+
+  useEffect(() => {
+    if (isError && error?.status === 401) {
+      clearAdminToken();
+    }
+  }, [isError, error]);
 
   const logoutMutation = useMutation({
     mutationFn: logoutAdmin,

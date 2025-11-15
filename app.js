@@ -893,6 +893,19 @@ async function findAdminByEmail(email) {
     const handleAdminLogin = adminLoginHandlerFactory();
     adminRouter.post("/login", handleAdminLogin);
 
+    adminRouter.get("/session", authenticate, (req, res) => {
+      res.json({
+        user: {
+          id: req.user.id,
+          email: req.user.email,
+        },
+      });
+    });
+
+    adminRouter.post("/logout", (_req, res) => {
+      res.status(204).end();
+    });
+
     async function handleAdminPasswordChange(req, res) {
       try {
         const { currentPassword, newPassword } = req.body ?? {};

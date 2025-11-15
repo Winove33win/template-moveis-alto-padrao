@@ -1,45 +1,49 @@
 const DEFAULT_BASE_URL = "/api";
-const TOKEN_STORAGE_KEY = "adminAuthToken";
+const ADMIN_TOKEN_KEY = "catalog_admin_token";
 
-let authToken = null;
+let adminToken = null;
 
 function isBrowser() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
 function loadStoredToken() {
-  if (authToken) {
-    return authToken;
+  if (adminToken) {
+    return adminToken;
   }
 
   if (!isBrowser()) {
     return null;
   }
 
-  authToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
-  return authToken;
+  adminToken = window.localStorage.getItem(ADMIN_TOKEN_KEY);
+  return adminToken;
 }
 
-function setAuthToken(token) {
-  authToken = token ?? null;
+export function setAdminToken(token) {
+  adminToken = token ?? null;
 
   if (!isBrowser()) {
     return;
   }
 
-  if (authToken) {
-    window.localStorage.setItem(TOKEN_STORAGE_KEY, authToken);
+  if (adminToken) {
+    window.localStorage.setItem(ADMIN_TOKEN_KEY, adminToken);
   } else {
-    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(ADMIN_TOKEN_KEY);
   }
 }
 
-function getAuthToken() {
+export function clearAdminToken() {
+  setAdminToken(null);
+}
+
+function getAdminToken() {
   return loadStoredToken();
 }
 
-function getAuthHeaders() {
-  const token = getAuthToken();
+export function getAdminAuthHeaders() {
+  const token = getAdminToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -120,7 +124,7 @@ export async function createProduct(product) {
     method: "POST",
     body: prepareProductFormData(product),
     headers: {
-      ...getAuthHeaders(),
+      ...getAdminAuthHeaders(),
     },
     credentials: "include",
   });
@@ -133,7 +137,7 @@ export async function updateProduct(productId, product) {
     method: "PUT",
     body: prepareProductFormData(product),
     headers: {
-      ...getAuthHeaders(),
+      ...getAdminAuthHeaders(),
     },
     credentials: "include",
   });
@@ -145,7 +149,7 @@ export async function cleanupOrphanUploads() {
   const response = await fetch(buildUrl("/uploads/cleanup"), {
     method: "POST",
     headers: {
-      ...getAuthHeaders(),
+      ...getAdminAuthHeaders(),
     },
     credentials: "include",
   });
@@ -154,7 +158,7 @@ export async function cleanupOrphanUploads() {
 }
 
 async function fetchJson(url, options) {
-  const authHeaders = getAuthHeaders();
+  const authHeaders = getAdminAuthHeaders();
   const response = await fetch(url, {
     credentials: "include",
     headers: {
@@ -196,7 +200,7 @@ export async function loginAdmin(credentials) {
   });
 
   if (session?.token) {
-    setAuthToken(session.token);
+    setAdminToken(session.token);
   }
 
   return session;
@@ -209,7 +213,7 @@ export async function logoutAdmin() {
       body: JSON.stringify({}),
     });
   } finally {
-    setAuthToken(null);
+    clearAdminToken();
   }
 }
 
