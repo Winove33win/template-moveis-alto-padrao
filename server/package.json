@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "nodemon --watch src --exec node src/index.js",
     "start": "node src/index.js",
-    "migrate": "prisma migrate deploy",
-    "migrate:dev": "prisma migrate dev --name init --create-only",
-    "generate": "prisma generate",
+    "migrate": "node ./scripts/run-prisma.js migrate deploy",
+    "migrate:dev": "node ./scripts/run-prisma.js migrate dev --name init --create-only",
+    "generate": "node ./scripts/run-prisma.js generate",
     "seed": "node prisma/seed.js",
     "generate:sql": "node prisma/generate-catalog-sql.js",
     "create-admin": "node scripts/create-admin.js"
