@@ -874,6 +874,7 @@ process.on("uncaughtException", (error) => {
     }
 
     const handleAdminLogin = adminLoginHandlerFactory();
+    adminRouter.post("/login", handleAdminLogin);
 
     async function handleAdminPasswordChange(req, res) {
       try {
