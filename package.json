@@ -9,7 +9,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "nodemon app.js"
+    "server": "nodemon app.js",
+    "create-admin": "node scripts/create-admin.js"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.3",
