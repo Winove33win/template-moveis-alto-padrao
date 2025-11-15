@@ -648,15 +648,18 @@ process.on("uncaughtException", (error) => {
       });
     }
 
-    async function findAdminByEmail(email) {
-      const [rows] = await pool.query(
-        `SELECT id, email, password_hash AS passwordHash
-         FROM admin_users
-         WHERE email = ?`,
-        [email]
-      );
-      return rows[0] ?? null;
-    }
+async function findAdminByEmail(email) {
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const [rows] = await pool.query(
+    `SELECT id, LOWER(email) AS email, password_hash AS passwordHash
+     FROM admin_users
+     WHERE LOWER(email) = ?
+     LIMIT 1`,
+    [normalizedEmail]
+  );
+  return rows[0] ?? null;
+}
+
 
     async function findAdminById(id) {
       const [rows] = await pool.query(
@@ -836,42 +839,56 @@ process.on("uncaughtException", (error) => {
       });
     }
 
-    function adminLoginHandlerFactory() {
-      return async (req, res) => {
-        try {
-          const { email, password } = req.body ?? {};
+  function adminLoginHandlerFactory() {
+  return async (req, res) => {
+    try {
+      const { email, password } = req.body ?? {};
 
-          if (!email || !password) {
-            return res.status(400).json({ message: "Credenciais obrigatórias" });
-          }
+      if (!email || !password) {
+        return res.status(400).json({ message: "Credenciais obrigatórias" });
+      }
 
-          const admin = await findAdminByEmail(email);
+      const normalizedEmail = String(email).trim().toLowerCase();
+      console.log("[ADMIN LOGIN] Tentando login para:", normalizedEmail);
 
-          if (!admin) {
-            return res.status(401).json({ message: "Credenciais inválidas" });
-          }
+      const admin = await findAdminByEmail(normalizedEmail);
 
-          const passwordMatches = await bcrypt.compare(password, admin.passwordHash);
+      if (!admin) {
+        console.warn("[ADMIN LOGIN] Usuário não encontrado:", normalizedEmail);
+        return res.status(401).json({ message: "Credenciais inválidas" });
+      }
 
-          if (!passwordMatches) {
-            return res.status(401).json({ message: "Credenciais inválidas" });
-          }
+      console.log("[ADMIN LOGIN] Usuário encontrado:", admin.email);
 
-          const token = generateToken(admin);
+      let passwordMatches = false;
 
-          res.json({
-            token,
-            user: {
-              id: admin.id,
-              email: admin.email,
-            },
-          });
-        } catch (error) {
-          console.error("[AUTH LOGIN ERRO]", error);
-          res.status(500).json({ message: "Erro ao autenticar" });
-        }
-      };
+      try {
+        passwordMatches = await bcrypt.compare(password, admin.passwordHash);
+      } catch (err) {
+        console.error("[ADMIN LOGIN] Erro no bcrypt.compare:", err);
+      }
+
+      if (!passwordMatches) {
+        console.warn("[ADMIN LOGIN] Senha inválida para:", admin.email);
+        return res.status(401).json({ message: "Credenciais inválidas" });
+      }
+
+      const token = generateToken(admin);
+
+      res.json({
+        token,
+        user: {
+          id: admin.id,
+          email: admin.email,
+        },
+      });
+    } catch (error) {
+      console.error("[AUTH LOGIN ERRO]", error);
+      res.status(500).json({ message: "Erro ao autenticar" });
     }
+  };
+}
+
 
     const handleAdminLogin = adminLoginHandlerFactory();
     adminRouter.post("/login", handleAdminLogin);
