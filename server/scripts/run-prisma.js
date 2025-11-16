@@ -1,22 +1,12 @@
 #!/usr/bin/env node
+import "../config/load-env.js";
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import dotenv from "dotenv";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const rootEnvPath = path.resolve(__dirname, "..", "..", ".env");
-
-if (fs.existsSync(rootEnvPath)) {
-  dotenv.config({ path: rootEnvPath });
-} else {
-  console.warn(
-    `Root .env file not found at ${rootEnvPath}. Prisma CLI will use the current process environment.`
-  );
-}
-
 const prismaBinary = process.platform === "win32"
   ? path.resolve(__dirname, "..", "node_modules", ".bin", "prisma.cmd")
   : path.resolve(__dirname, "..", "node_modules", ".bin", "prisma");

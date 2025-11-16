@@ -53,7 +53,7 @@ server and the helper scripts:
 | `DB_SOCKET_PATH` | Optional Unix socket path for MySQL/MariaDB. When set, `DB_HOST`/`DB_PORT` become optional. | — |
 | `DB_POOL_LIMIT`, `DB_QUEUE_LIMIT` | Fine tune the MySQL connection pool (connections and pending queue). | `10`, `0` |
 | `DB_CONNECT_RETRIES`, `DB_CONNECT_RETRY_DELAY_MS` | Control how many times (and how often) the server retries the DB handshake before aborting. | `5`, `2000` |
-| `DATABASE_URL` | Prisma connection string derived from the values above. | — |
+| `DATABASE_URL` | Prisma connection string. When omitted, the server derives it from the `DB_*` variables (including socket paths). | — |
 | `SERVER_PORT` | Port used by the catalog API (`server/`). | `4000` |
 | `CATALOG_API_URL` | Origin used by the Express proxy (`app.js`) and Vite dev server to forward `/api` requests to the catalog backend. **Production deployments must set this to the live Catalog API origin.** | `http://localhost:4000` |
 | `VITE_API_PROXY_TARGET` | Optional override for the Vite dev server proxy target. | Uses `CATALOG_API_URL`/`http://localhost:4000` |
