@@ -64,6 +64,28 @@ If you run the catalog API locally (`npm install && npm run dev` inside the
 `server/` folder), the defaults above will let the front-end communicate with it
 immediately.
 
+### Preparing admin credentials
+
+The helper script `npm run create-admin` (which executes
+`scripts/create-admin.js`) ensures an administrator account exists in the
+database. Before running it:
+
+1. Export the database connection variables (or create a local `.env` file) so
+   the script can connect to MariaDB/MySQL.
+2. Provide `ADMIN_EMAIL` and `ADMIN_PASSWORD` through the environment. For
+   example:
+
+   ```bash
+   ADMIN_EMAIL=admin@example.com \
+   ADMIN_PASSWORD="StrongPass#2024" \
+   npm run create-admin
+   ```
+
+   When the script runs in a development terminal (`NODE_ENV=development` or no
+   `NODE_ENV` set) and both stdin/stdout are TTYs, it prompts for any missing
+   values instead of silently falling back to unsafe defaults. Production
+   environments must always set the variables explicitly.
+
 ### Health check endpoint
 
 Production deploys can monitor `GET /healthz`, which performs a simple

@@ -3,13 +3,13 @@ const path = require("path");
 const dotenv = require("dotenv");
 const mysql = require("mysql2/promise");
 const bcrypt = require("bcrypt");
+const readline = require("readline");
 const { randomUUID } = require("crypto");
 
 const envPath = path.resolve(__dirname, "..", ".env");
 dotenv.config({ path: envPath });
 
-const DEFAULT_ADMIN_EMAIL = "gerencia@winove.com.br";
-const DEFAULT_ADMIN_PASSWORD = "123456789amilase";
+const DEV_ENV_VALUES = new Set(["development", "dev", "test", ""]); // empty => local shell
 
 function toInteger(value, defaultValue) {
   const parsed = Number.parseInt(value, 10);
@@ -55,14 +55,59 @@ function buildPoolConfig() {
   };
 }
 
-async function ensureAdmin(pool) {
-  const adminEmail = process.env.ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL;
-  const adminPassword =
-    process.env.ADMIN_PASSWORD || process.env.ADMIN_DEFAULT_PASSWORD || DEFAULT_ADMIN_PASSWORD;
+function isDevelopmentEnvironment() {
+  const env = (process.env.NODE_ENV || "").toLowerCase();
+  return DEV_ENV_VALUES.has(env);
+}
 
-  if (!adminPassword) {
-    throw new Error("Defina ADMIN_PASSWORD ou ADMIN_DEFAULT_PASSWORD para criar o usuário");
+async function ask(question, rl) {
+  return await new Promise((resolve) => rl.question(question, resolve));
+}
+
+async function resolveAdminCredentials() {
+  let adminEmail = (process.env.ADMIN_EMAIL || "").trim();
+  let adminPassword = process.env.ADMIN_PASSWORD || "";
+
+  const shouldPrompt = !adminEmail || !adminPassword;
+  const canPrompt =
+    shouldPrompt && isDevelopmentEnvironment() && process.stdin.isTTY && process.stdout.isTTY;
+
+  let rl;
+  try {
+    if (canPrompt) {
+      rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      if (!adminEmail) {
+        adminEmail = (await ask("Informe o ADMIN_EMAIL do administrador: ", rl)).trim();
+      }
+      if (!adminPassword) {
+        adminPassword = (await ask("Informe o ADMIN_PASSWORD do administrador: ", rl)).trim();
+      }
+    }
+  } finally {
+    if (rl) {
+      rl.close();
+    }
   }
+
+  const missing = [];
+  if (!adminEmail) {
+    missing.push("ADMIN_EMAIL");
+  }
+  if (!adminPassword) {
+    missing.push("ADMIN_PASSWORD");
+  }
+
+  if (missing.length) {
+    throw new Error(
+      `Defina ${missing.length > 1 ? "as variáveis" : "a variável"} obrigatórias ${missing.join(", ")} antes de executar este script.`
+    );
+  }
+
+  return { adminEmail, adminPassword };
+}
+
+async function ensureAdmin(pool, credentials) {
+  const { adminEmail, adminPassword } = credentials;
 
   const saltRounds = toInteger(process.env.BCRYPT_SALT_ROUNDS, 10);
   const hashedPassword = await bcrypt.hash(adminPassword, saltRounds || 10);
@@ -93,9 +138,10 @@ async function ensureAdmin(pool) {
 
 async function main() {
   requireEnvVars();
+  const credentials = await resolveAdminCredentials();
   const pool = await mysql.createPool(buildPoolConfig());
   try {
-    const admin = await ensureAdmin(pool);
+    const admin = await ensureAdmin(pool, credentials);
     if (admin.updated) {
       console.log(`Senha do administrador ${admin.email} atualizada com sucesso.`);
     } else {
