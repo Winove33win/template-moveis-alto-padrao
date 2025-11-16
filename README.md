@@ -93,6 +93,28 @@ Production deploys can monitor `GET /healthz`, which performs a simple
 when the pool is healthy or `500` with `status: "error"` if the database is not
 reachable, making it suitable for uptime monitors and Passenger health checks.
 
+### Deployment checklist (catalog + landing page)
+
+1. Open your hosting provider's environment/secret settings and create the
+   variables listed in `.env.example` (`DB_HOST`, `DB_PORT`, `DB_USER`,
+   `DB_PASSWORD`, `DB_NAME`, and **either** `JWT_SECRET` or
+   `ADMIN_JWT_SECRET`). Copy the same key names used locally so `app.js` and the
+   catalog API can hydrate their configuration without code changes.
+2. Point those variables to a MariaDB instance that already contains the
+   catalog schema. You can bootstrap it by running `npm install && npm run
+   migrate && npm run seed` inside the `server/` directory (see the server
+   README for details) or by restoring the latest production backup. Make
+   sure the network rules allow the Express proxy/hosting provider to reach the
+   database host/port.
+3. Redeploy/restart `app.js` after saving the new environment variables so the
+   process picks up the changes. Before sending any visitor traffic to the
+   landing page, run `npm run check-health` (or execute
+   `node scripts/check-health.js https://your-domain/healthz`) to confirm that
+   the `/healthz` endpoint is returning `{ "status": "ok" }`. Once the health
+   check passes, reload the landing page—the `/api/catalog/categories` and
+   `/api/catalog/products` requests will succeed because the proxy is already
+   connected to the catalog database.
+
 ### Production deployment tips
 
 - Build-time env files such as `.env.production` should keep `VITE_API_BASE_URL`

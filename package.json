@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "server": "nodemon app.js",
     "create-admin": "node scripts/create-admin.js",
-    "validate-setup": "node scripts/validate-setup.js"
+    "validate-setup": "node scripts/validate-setup.js",
+    "check-health": "node scripts/check-health.js"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.3",
