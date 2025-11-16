@@ -1306,30 +1306,6 @@ async function findAdminByEmail(email) {
             .map((src) => path.basename(src))
         );
 
-        const products = productRows.map((row) => ({
-          id: row.slug ?? row.id,
-          uuid: row.id,
-          slug: row.slug ?? row.id,
-          categoryId: row.categorySlug ?? row.categoryUuid,
-          categoryUuid: row.categoryUuid,
-          name: row.name,
-          summary: row.summary ?? null,
-          description: row.description ?? null,
-          media: (mediaByProduct.get(row.id) ?? []).sort((a, b) => a.order - b.order),
-          assets: assetsByProduct.get(row.id) ?? [],
-          specs: {
-            designer: row.designer ?? null,
-            dimensions: row.dimensions ?? null,
-            materials: materialsByProduct.get(row.id) ?? [],
-            finishOptions: finishOptionsByProduct.get(row.id) ?? [],
-            lightSource: row.lightSource ?? null,
-            leadTime: row.leadTime ?? null,
-            warranty: row.warranty ?? null,
-            customization: customizationsByProduct.get(row.id) ?? [],
-          },
-        }));
-
-
         const removed = [];
         for (const file of filesOnDisk) {
           if (file === ".gitkeep") {
