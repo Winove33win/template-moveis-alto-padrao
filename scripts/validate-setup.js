@@ -17,7 +17,8 @@ const REQUIRED_TABLES = [
 
 const ENDPOINTS = [
   '/api/catalog/categories',
-  '/api/products',
+  '/api/catalog/products',
+  '/api/produtos',
   '/api/admin/login'
 ];
 
