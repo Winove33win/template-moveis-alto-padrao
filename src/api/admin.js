@@ -237,20 +237,6 @@ export function deleteCatalogCategory(id) {
   });
 }
 
-export function createCatalogProduct(data) {
-  return fetchJson(buildUrl("/admin/catalog/products"), {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-}
-
-export function updateCatalogProduct(id, data) {
-  return fetchJson(buildUrl(`/admin/catalog/products/${id}`), {
-    method: "PUT",
-    body: JSON.stringify(data),
-  });
-}
-
 export function deleteCatalogProduct(id) {
   return fetchJson(buildUrl(`/admin/catalog/products/${id}`), {
     method: "DELETE",
