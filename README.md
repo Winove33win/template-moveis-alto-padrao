@@ -31,7 +31,21 @@ npm start
 
 ## Environment variables
 
-Environment variables can be stored in the root `.env` file.
+Secrets are configured through your hosting provider's environment settings (or
+your local shell) and must never be committed to the repository. The
+`.env.example` file lists every variable consumed by the Express proxy, the API
+server and the helper scripts:
+
+1. Duplicate `.env.example` to `.env` only for local development. Keep the file
+   untracked (see `.gitignore`) and overwrite every placeholder with values
+   generated specifically for your workstation.
+2. Production and test deployments must define the same variables via the cloud
+   panel/secret manager (e.g., Render, Railway, Heroku, etc.). Store the
+   database credentials and `JWT_SECRET`/`ADMIN_JWT_SECRET` there and rotate
+   them whenever an engineer leaves the project or an env file is regenerated.
+3. Generate fresh secrets before promoting new builds. For example,
+   `openssl rand -hex 32` produces a strong `JWT_SECRET`, while MariaDB/MySQL
+   credentials should be reset in the managed database console.
 
 | Variable | Description | Default |
 | --- | --- | --- |
