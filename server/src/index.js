@@ -54,6 +54,10 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
+function logRouteError(label, error) {
+  console.error(`[${label}]`, { code: error.code, message: error.message });
+}
+
 function buildBaseUrl(req) {
   const host = req.get("x-forwarded-host") || req.get("host");
   const protocol = req.get("x-forwarded-proto") || req.protocol;
@@ -283,6 +287,7 @@ authRouter.post("/login", async (req, res, next) => {
       },
     });
   } catch (error) {
+    logRouteError("ADMIN_LOGIN", error);
     next(error);
   }
 });
@@ -317,6 +322,7 @@ authRouter.post("/change-password", authenticate, async (req, res, next) => {
 
     res.json({ message: "Senha atualizada com sucesso" });
   } catch (error) {
+    logRouteError("CHANGE_PASSWORD", error);
     next(error);
   }
 });
@@ -333,6 +339,7 @@ catalogRouter.get("/categories", async (_req, res, next) => {
     });
     res.json(categories.map(mapCategory));
   } catch (error) {
+    logRouteError("LIST_CATEGORIES", error);
     next(error);
   }
 });
@@ -341,8 +348,17 @@ catalogRouter.post("/categories", authenticate, async (req, res, next) => {
   try {
     const { highlights, ...payload } = req.body ?? {};
 
-    if (!payload.slug || !payload.name) {
+    const slug = payload.slug?.trim();
+    if (!slug || !payload.name) {
       return res.status(400).json({ message: "Slug e nome são obrigatórios" });
+    }
+
+    payload.slug = slug;
+
+    const existingCategory = await prisma.catalogCategory.findUnique({ where: { slug } });
+
+    if (existingCategory) {
+      return res.status(409).json({ message: "Slug já existe" });
     }
 
     const highlightItems = Array.isArray(highlights)
@@ -377,6 +393,7 @@ catalogRouter.post("/categories", authenticate, async (req, res, next) => {
 
     res.status(201).json(mapCategory(category));
   } catch (error) {
+    logRouteError("CREATE_CATEGORY", error);
     next(error);
   }
 });
@@ -430,6 +447,7 @@ catalogRouter.put("/categories/:categoryId", authenticate, async (req, res, next
 
     res.json(mapCategory(category));
   } catch (error) {
+    logRouteError("UPDATE_CATEGORY", error);
     next(error);
   }
 });
@@ -442,6 +460,7 @@ catalogRouter.delete("/categories/:categoryId", authenticate, async (req, res, n
 
     res.status(204).end();
   } catch (error) {
+    logRouteError("DELETE_CATEGORY", error);
     if (error.code === "P2025") {
       return res.status(404).json({ message: "Categoria não encontrada" });
     }
@@ -479,6 +498,7 @@ catalogRouter.get("/products", async (req, res, next) => {
     const baseUrl = buildBaseUrl(req);
     res.json(products.map((product) => mapProduct(product, baseUrl)));
   } catch (error) {
+    logRouteError("LIST_PRODUCTS", error);
     next(error);
   }
 });
@@ -591,6 +611,28 @@ async function deleteUploadsForMedia(mediaItems = []) {
   await Promise.all(deletions);
 }
 
+async function cleanupUploadedFiles(files = []) {
+  if (!Array.isArray(files) || files.length === 0) {
+    return;
+  }
+
+  const mediaItems = files
+    .map((file) =>
+      file?.filename
+        ? {
+            src: path.posix.join("/uploads", file.filename),
+          }
+        : null
+    )
+    .filter(Boolean);
+
+  if (!mediaItems.length) {
+    return;
+  }
+
+  await deleteUploadsForMedia(mediaItems);
+}
+
 function buildProductDataFromPayload(payload, resolvedMedia) {
   const specs = payload?.specs ?? {};
 
@@ -630,14 +672,27 @@ function buildProductDataFromPayload(payload, resolvedMedia) {
 
 app.post(
   `${API_PREFIX}/catalog/products`,
+  authenticate,
   upload.array("mediaFiles"),
   async (req, res, next) => {
     try {
       const payload = parseProductPayload(req.body);
-      if (!payload?.name || !payload?.slug || !payload?.categoryId) {
+      const slug = payload?.slug?.trim();
+
+      if (!payload?.name || !slug || !payload?.categoryId) {
+        await cleanupUploadedFiles(req.files);
         return res
           .status(400)
           .json({ message: "Campos obrigatórios ausentes: nome, slug ou categoria" });
+      }
+
+      payload.slug = slug;
+
+      const existingProduct = await prisma.product.findUnique({ where: { slug } });
+
+      if (existingProduct) {
+        await cleanupUploadedFiles(req.files);
+        return res.status(409).json({ message: "Slug já existe" });
       }
 
       const resolvedMedia = resolveMediaPayload(payload.media ?? [], req.files ?? []);
@@ -687,6 +742,8 @@ app.post(
       const baseUrl = buildBaseUrl(req);
       res.status(201).json(mapProduct(created, baseUrl));
     } catch (error) {
+      logRouteError("CREATE_PRODUCT_UPLOAD", error);
+      await cleanupUploadedFiles(req.files);
       next(error);
     }
   }
@@ -694,6 +751,7 @@ app.post(
 
 app.put(
   `${API_PREFIX}/catalog/products/:productId`,
+  authenticate,
   upload.array("mediaFiles"),
   async (req, res, next) => {
     const { productId } = req.params;
@@ -707,15 +765,20 @@ app.put(
       });
 
       if (!existing) {
+        await cleanupUploadedFiles(req.files);
         return res.status(404).json({ message: "Produto não encontrado" });
       }
 
       const payload = parseProductPayload(req.body);
-      if (!payload?.name || !payload?.slug || !payload?.categoryId) {
+      const slug = payload?.slug?.trim();
+      if (!payload?.name || !slug || !payload?.categoryId) {
+        await cleanupUploadedFiles(req.files);
         return res
           .status(400)
           .json({ message: "Campos obrigatórios ausentes: nome, slug ou categoria" });
       }
+
+      payload.slug = slug;
 
       const resolvedMedia = resolveMediaPayload(payload.media ?? [], req.files ?? []);
 
@@ -742,6 +805,8 @@ app.put(
       const baseUrl = buildBaseUrl(req);
       res.json(mapProduct(updated, baseUrl));
     } catch (error) {
+      logRouteError("UPDATE_PRODUCT_UPLOAD", error);
+      await cleanupUploadedFiles(req.files);
       next(error);
     }
   }
@@ -776,6 +841,7 @@ app.post(`${API_PREFIX}/uploads/cleanup`, async (_req, res, next) => {
 
     res.json({ removed, totalRemoved: removed.length });
   } catch (error) {
+    logRouteError("CLEANUP_UPLOADS", error);
     next(error);
   }
 });
@@ -784,10 +850,20 @@ catalogRouter.post("/products", authenticate, async (req, res, next) => {
   try {
     const payload = req.body ?? {};
 
-    if (!payload.slug || !payload.categoryId || !payload.name) {
+    const slug = payload.slug?.trim();
+
+    if (!slug || !payload.categoryId || !payload.name) {
       return res
         .status(400)
         .json({ message: "Slug, categoria e nome são obrigatórios" });
+    }
+
+    payload.slug = slug;
+
+    const existingProduct = await prisma.product.findUnique({ where: { slug } });
+
+    if (existingProduct) {
+      return res.status(409).json({ message: "Slug já existe" });
     }
 
     const data = pickDefined({}, payload, [
@@ -824,6 +900,7 @@ catalogRouter.post("/products", authenticate, async (req, res, next) => {
 
     res.status(201).json(mapProduct(product));
   } catch (error) {
+    logRouteError("CREATE_PRODUCT", error);
     next(error);
   }
 });
@@ -874,6 +951,7 @@ catalogRouter.put("/products/:productId", authenticate, async (req, res, next) =
 
     res.json(mapProduct(product));
   } catch (error) {
+    logRouteError("UPDATE_PRODUCT", error);
     next(error);
   }
 });
@@ -882,10 +960,16 @@ catalogRouter.delete("/products/:productId", authenticate, async (req, res, next
   try {
     const { productId } = req.params;
 
-    await prisma.product.delete({ where: { id: productId } });
+    const deleted = await prisma.product.delete({
+      where: { id: productId },
+      include: { media: true },
+    });
+
+    await deleteUploadsForMedia(deleted.media);
 
     res.status(204).end();
   } catch (error) {
+    logRouteError("DELETE_PRODUCT", error);
     if (error.code === "P2025") {
       return res.status(404).json({ message: "Produto não encontrado" });
     }

@@ -9,7 +9,7 @@ const INITIAL_FORM_STATE = {
   summary: "",
   description: "",
   categoryId: "",
-  media: [{ src: "", alt: "" }],
+  media: [{ src: "", alt: "", file: null }],
   designer: "",
   dimensions: "",
   materials: [""],
@@ -59,8 +59,12 @@ export default function AdminProductForm() {
       description: product.description ?? "",
       categoryId: product.categoryUuid ?? product.categoryId ?? "",
       media: product.media?.length
-        ? product.media.map((item) => ({ src: item.src ?? "", alt: item.alt ?? "" }))
-        : [{ src: "", alt: "" }],
+        ? product.media.map((item) => ({
+            src: item.src ?? "",
+            alt: item.alt ?? "",
+            file: null,
+          }))
+        : [{ src: "", alt: "", file: null }],
       designer: product.specs?.designer ?? "",
       dimensions: product.specs?.dimensions ?? "",
       materials: product.specs?.materials?.length ? [...product.specs.materials] : [""],
@@ -92,7 +96,7 @@ export default function AdminProductForm() {
   const addArrayItem = (field) => {
     setFormState((previous) => ({
       ...previous,
-      [field]: [...previous[field], field === "media" ? { src: "", alt: "" } : ""],
+      [field]: [...previous[field], field === "media" ? { src: "", alt: "", file: null } : ""],
     }));
   };
 
@@ -103,9 +107,33 @@ export default function AdminProductForm() {
     }));
   };
 
+  const handleMediaFileChange = (index, file) => {
+    setFormState((previous) => {
+      const nextMedia = [...previous.media];
+      nextMedia[index] = { ...nextMedia[index], file: file ?? null };
+      return { ...previous, media: nextMedia };
+    });
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setFeedback(null);
+
+    const mediaPayload = formState.media
+      .map((item) => {
+        const alt = item.alt?.trim() || null;
+        if (typeof File !== "undefined" && item.file instanceof File) {
+          return { alt, file: item.file };
+        }
+
+        const source = item.src?.trim();
+        if (source) {
+          return { alt, src: source };
+        }
+
+        return null;
+      })
+      .filter(Boolean);
 
     const payload = {
       name: formState.name,
@@ -113,13 +141,7 @@ export default function AdminProductForm() {
       summary: formState.summary,
       description: formState.description,
       categoryId: formState.categoryId,
-      media: formState.media
-        .filter((item) => item.src && item.src.trim().length > 0)
-        .map((item, index) => ({
-          src: item.src,
-          alt: item.alt,
-          position: index,
-        })),
+      media: mediaPayload,
       specs: {
         designer: formState.designer,
         dimensions: formState.dimensions,
@@ -246,6 +268,19 @@ export default function AdminProductForm() {
                     })}
                     placeholder="https://..."
                   />
+                </div>
+                <div className="admin-form__field">
+                  <span>Upload de imagem</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) =>
+                      handleMediaFileChange(index, event.target.files?.[0] ?? null)
+                    }
+                  />
+                  {item.file ? (
+                    <small>Arquivo selecionado: {item.file.name}</small>
+                  ) : null}
                 </div>
                 <div className="admin-form__field">
                   <span>Texto alternativo</span>

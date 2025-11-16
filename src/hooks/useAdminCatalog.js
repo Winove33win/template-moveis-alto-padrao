@@ -3,8 +3,8 @@ import {
   createCatalogCategory,
   updateCatalogCategory,
   deleteCatalogCategory,
-  createCatalogProduct,
-  updateCatalogProduct,
+  createProduct,
+  updateProduct,
   deleteCatalogProduct,
 } from "@/api/admin";
 
@@ -36,14 +36,14 @@ export function useAdminCatalog() {
   });
 
   const createProductMutation = useMutation({
-    mutationFn: createCatalogProduct,
+    mutationFn: createProduct,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY });
     },
   });
 
   const updateProductMutation = useMutation({
-    mutationFn: ({ id, data }) => updateCatalogProduct(id, data),
+    mutationFn: ({ id, data }) => updateProduct(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY });
     },
