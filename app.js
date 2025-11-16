@@ -73,6 +73,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+function isDuplicateEntryError(error) {
+  return error && error.code === "ER_DUP_ENTRY";
+}
+
 function normalizeText(value) {
   if (typeof value !== "string") {
     return null;
@@ -1015,6 +1019,9 @@ async function findAdminByEmail(email) {
       } catch (error) {
         await connection.rollback();
         console.error("[API CATALOG CATEGORIES CREATE ERRO]", error);
+        if (isDuplicateEntryError(error)) {
+          return res.status(409).json({ message: "Slug da categoria já está em uso" });
+        }
         res.status(500).json({ message: "Erro ao criar categoria" });
       } finally {
         connection.release();
@@ -1066,6 +1073,9 @@ async function findAdminByEmail(email) {
       } catch (error) {
         await connection.rollback();
         console.error("[API CATALOG CATEGORIES UPDATE ERRO]", error);
+        if (isDuplicateEntryError(error)) {
+          return res.status(409).json({ message: "Slug da categoria já está em uso" });
+        }
         res.status(500).json({ message: "Erro ao atualizar categoria" });
       } finally {
         connection.release();
@@ -1155,6 +1165,9 @@ async function findAdminByEmail(email) {
       } catch (error) {
         await connection.rollback();
         console.error("[API CATALOG PRODUCTS CREATE ERRO]", error);
+        if (isDuplicateEntryError(error)) {
+          return res.status(409).json({ message: "Slug do produto já está em uso" });
+        }
         res.status(500).json({ message: "Erro ao criar produto" });
       } finally {
         connection.release();
@@ -1227,6 +1240,9 @@ async function findAdminByEmail(email) {
       } catch (error) {
         await connection.rollback();
         console.error("[API CATALOG PRODUCTS UPDATE ERRO]", error);
+        if (isDuplicateEntryError(error)) {
+          return res.status(409).json({ message: "Slug do produto já está em uso" });
+        }
         res.status(500).json({ message: "Erro ao atualizar produto" });
       } finally {
         connection.release();
@@ -1269,6 +1285,7 @@ async function findAdminByEmail(email) {
 
     app.post(
       "/api/catalog/products",
+      authenticate,
       upload.array("mediaFiles"),
       async (req, res) => {
         try {
@@ -1335,6 +1352,9 @@ async function findAdminByEmail(email) {
         } catch (error) {
           await cleanupUploadedFiles(req.files ?? []);
           console.error("[API CREATE PRODUCT ERRO]", error);
+          if (isDuplicateEntryError(error)) {
+            return res.status(409).json({ error: "Slug do produto já está em uso" });
+          }
           const status = Number.isInteger(error.status) ? error.status : 500;
           res.status(status).json({ error: error.message ?? "Erro ao criar produto" });
         }
@@ -1343,6 +1363,7 @@ async function findAdminByEmail(email) {
 
     app.put(
       "/api/catalog/products/:productId",
+      authenticate,
       upload.array("mediaFiles"),
       async (req, res) => {
         const { productId } = req.params;
@@ -1426,6 +1447,9 @@ async function findAdminByEmail(email) {
         } catch (error) {
           await cleanupUploadedFiles(req.files ?? []);
           console.error("[API UPDATE PRODUCT ERRO]", error);
+          if (isDuplicateEntryError(error)) {
+            return res.status(409).json({ error: "Slug do produto já está em uso" });
+          }
           const status = Number.isInteger(error.status) ? error.status : 500;
           res.status(status).json({ error: error.message ?? "Erro ao atualizar produto" });
         }
