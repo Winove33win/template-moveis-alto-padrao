@@ -408,6 +408,131 @@ async function fetchProducts({ categorySlug, productId } = {}) {
   }));
 }
 
+async function handleProductMutation(req, res, { productId, existingProduct } = {}) {
+  const isUpdate = Boolean(existingProduct);
+  const actionLabel = isUpdate ? "atualizar" : "criar";
+
+  try {
+    const payload = parseProductPayload(req.body);
+
+    if (!payload?.name || !payload?.slug || !payload?.categoryId) {
+      return res
+        .status(400)
+        .json({ error: "Campos obrigatórios ausentes: nome, slug ou categoria" });
+    }
+
+    const resolvedMedia = resolveMediaPayload(payload.media ?? [], req.files ?? []);
+    const specs = payload?.specs ?? {};
+    const normalizedSpecs = {
+      designer: normalizeText(specs.designer),
+      dimensions: normalizeText(specs.dimensions),
+      materials: normalizeList(specs.materials),
+      finishOptions: normalizeList(specs.finishOptions),
+      lightSource: normalizeText(specs.lightSource),
+      leadTime: normalizeText(specs.leadTime),
+      warranty: normalizeText(specs.warranty),
+      customization: normalizeList(specs.customization),
+    };
+
+    const effectiveProductId =
+      productId || existingProduct?.uuid || existingProduct?.id || randomUUID();
+
+    await withTransaction(async (connection) => {
+      if (isUpdate) {
+        await connection.query(
+          `UPDATE products
+             SET slug = ?,
+                 category_id = ?,
+                 name = ?,
+                 summary = ?,
+                 description = ?,
+                 designer = ?,
+                 dimensions = ?,
+                 light_source = ?,
+                 lead_time = ?,
+                 warranty = ?
+           WHERE id = ?`,
+          [
+            payload.slug,
+            payload.categoryId,
+            payload.name,
+            normalizeText(payload.summary),
+            normalizeText(payload.description),
+            normalizedSpecs.designer,
+            normalizedSpecs.dimensions,
+            normalizedSpecs.lightSource,
+            normalizedSpecs.leadTime,
+            normalizedSpecs.warranty,
+            effectiveProductId,
+          ]
+        );
+      } else {
+        await connection.query(
+          `INSERT INTO products (id, slug, category_id, name, summary, description, designer, dimensions, light_source, lead_time, warranty)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            effectiveProductId,
+            payload.slug,
+            payload.categoryId,
+            payload.name,
+            normalizeText(payload.summary),
+            normalizeText(payload.description),
+            normalizedSpecs.designer,
+            normalizedSpecs.dimensions,
+            normalizedSpecs.lightSource,
+            normalizedSpecs.leadTime,
+            normalizedSpecs.warranty,
+          ]
+        );
+      }
+
+      await replaceProductMedia(connection, effectiveProductId, resolvedMedia);
+      await replaceSimpleList(
+        connection,
+        "product_materials",
+        "name",
+        effectiveProductId,
+        normalizedSpecs.materials
+      );
+      await replaceSimpleList(
+        connection,
+        "product_finish_options",
+        "name",
+        effectiveProductId,
+        normalizedSpecs.finishOptions
+      );
+      await replaceSimpleList(
+        connection,
+        "product_customizations",
+        "description",
+        effectiveProductId,
+        normalizedSpecs.customization
+      );
+    });
+
+    if (isUpdate && existingProduct) {
+      const removedMedia = (existingProduct.media ?? []).filter(
+        (media) => !resolvedMedia.some((item) => item.src === media.src)
+      );
+      if (removedMedia.length) {
+        await deleteUploadsForMedia(removedMedia);
+      }
+    }
+
+    const [savedProduct] = await fetchProducts({ productId: effectiveProductId });
+    const statusCode = isUpdate ? 200 : 201;
+    return res.status(statusCode).json(savedProduct);
+  } catch (error) {
+    await cleanupUploadedFiles(req.files ?? []);
+    console.error(`[API ${isUpdate ? "UPDATE" : "CREATE"} PRODUCT ERRO]`, error);
+    if (isDuplicateEntryError(error)) {
+      return res.status(409).json({ error: "Slug do produto já está em uso" });
+    }
+    const status = Number.isInteger(error.status) ? error.status : 500;
+    return res.status(status).json({ error: error.message ?? `Erro ao ${actionLabel} produto` });
+  }
+}
+
 const DB_SOCKET_PATH = process.env.DB_SOCKET_PATH;
 const DB_POOL_LIMIT = Math.max(1, toInteger(process.env.DB_POOL_LIMIT, 10));
 const DB_QUEUE_LIMIT = Math.max(0, toInteger(process.env.DB_QUEUE_LIMIT, 0));
@@ -1113,142 +1238,6 @@ async function findAdminByEmail(email) {
       }
     });
 
-    app.post("/api/catalog/products", authenticate, async (req, res) => {
-      const payload = req.body ?? {};
-
-      if (!payload.slug || !payload.categoryId || !payload.name) {
-        return res
-          .status(400)
-          .json({ message: "Slug, categoria e nome são obrigatórios" });
-      }
-
-      const connection = await pool.getConnection();
-
-      try {
-        await connection.beginTransaction();
-
-        const productId = randomUUID();
-
-        await connection.query(
-          `INSERT INTO products
-             (id, slug, category_id, name, summary, description, designer, dimensions, light_source, lead_time, warranty, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-          [
-            productId,
-            payload.slug,
-            payload.categoryId,
-            payload.name,
-            payload.summary ?? null,
-            payload.description ?? null,
-            payload.designer ?? null,
-            payload.dimensions ?? null,
-            payload.lightSource ?? null,
-            payload.leadTime ?? null,
-            payload.warranty ?? null,
-          ]
-        );
-
-        await replaceProductMedia(connection, productId, payload.media);
-        await replaceProductAssets(connection, productId, payload.assets);
-        await replaceProductMaterials(connection, productId, payload.materials);
-        await replaceProductFinishOptions(connection, productId, payload.finishOptions);
-        await replaceProductCustomizations(
-          connection,
-          productId,
-          payload.customizations
-        );
-
-        await connection.commit();
-
-        const product = await fetchProductById(productId);
-        res.status(201).json(product);
-      } catch (error) {
-        await connection.rollback();
-        console.error("[API CATALOG PRODUCTS CREATE ERRO]", error);
-        if (isDuplicateEntryError(error)) {
-          return res.status(409).json({ message: "Slug do produto já está em uso" });
-        }
-        res.status(500).json({ message: "Erro ao criar produto" });
-      } finally {
-        connection.release();
-      }
-    });
-
-    app.put("/api/catalog/products/:productId", authenticate, async (req, res) => {
-      const { productId } = req.params;
-      const payload = req.body ?? {};
-
-      const existing = await fetchProductById(productId);
-
-      if (!existing) {
-        return res.status(404).json({ message: "Produto não encontrado" });
-      }
-
-      const connection = await pool.getConnection();
-
-      try {
-        await connection.beginTransaction();
-
-        const { updates, values } = buildUpdateSet(payload, [
-          "slug",
-          "categoryId",
-          "name",
-          "summary",
-          "description",
-          "designer",
-          "dimensions",
-          "lightSource",
-          "leadTime",
-          "warranty",
-        ]);
-
-        if (updates.length) {
-          await connection.query(
-            `UPDATE products SET ${updates.join(", ")} WHERE id = ?`,
-            [...values, productId]
-          );
-        }
-
-        if (payload.media !== undefined) {
-          await replaceProductMedia(connection, productId, payload.media);
-        }
-        if (payload.assets !== undefined) {
-          await replaceProductAssets(connection, productId, payload.assets);
-        }
-        if (payload.materials !== undefined) {
-          await replaceProductMaterials(connection, productId, payload.materials);
-        }
-        if (payload.finishOptions !== undefined) {
-          await replaceProductFinishOptions(
-            connection,
-            productId,
-            payload.finishOptions
-          );
-        }
-        if (payload.customizations !== undefined) {
-          await replaceProductCustomizations(
-            connection,
-            productId,
-            payload.customizations
-          );
-        }
-
-        await connection.commit();
-
-        const product = await fetchProductById(productId);
-        res.json(product);
-      } catch (error) {
-        await connection.rollback();
-        console.error("[API CATALOG PRODUCTS UPDATE ERRO]", error);
-        if (isDuplicateEntryError(error)) {
-          return res.status(409).json({ message: "Slug do produto já está em uso" });
-        }
-        res.status(500).json({ message: "Erro ao atualizar produto" });
-      } finally {
-        connection.release();
-      }
-    });
-
     app.delete("/api/catalog/products/:productId", authenticate, async (req, res) => {
       const { productId } = req.params;
 
@@ -1287,78 +1276,7 @@ async function findAdminByEmail(email) {
       "/api/catalog/products",
       authenticate,
       upload.array("mediaFiles"),
-      async (req, res) => {
-        try {
-          const payload = parseProductPayload(req.body);
-          if (!payload?.name || !payload?.slug || !payload?.categoryId) {
-            return res
-              .status(400)
-              .json({ error: "Campos obrigatórios ausentes: nome, slug ou categoria" });
-          }
-
-
-          const resolvedMedia = resolveMediaPayload(payload.media ?? [], req.files ?? []);
-          const specs = payload?.specs ?? {};
-
-          const productId = await withTransaction(async (connection) => {
-            const newProductId = randomUUID();
-            await connection.query(
-              `INSERT INTO products (id, slug, category_id, name, summary, description, designer, dimensions, light_source, lead_time, warranty)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                newProductId,
-                payload.slug,
-                payload.categoryId,
-                payload.name,
-                normalizeText(payload.summary),
-                normalizeText(payload.description),
-                normalizeText(specs.designer),
-                normalizeText(specs.dimensions),
-                normalizeText(specs.lightSource),
-                normalizeText(specs.leadTime),
-                normalizeText(specs.warranty),
-              ]
-            );
-
-
-            await replaceProductMedia(connection, newProductId, resolvedMedia);
-            await replaceSimpleList(
-              connection,
-              "product_materials",
-              "name",
-              newProductId,
-              normalizeList(specs.materials)
-            );
-            await replaceSimpleList(
-              connection,
-              "product_finish_options",
-              "name",
-              newProductId,
-              normalizeList(specs.finishOptions)
-            );
-            await replaceSimpleList(
-              connection,
-              "product_customizations",
-              "description",
-              newProductId,
-              normalizeList(specs.customization)
-            );
-
-            return newProductId;
-          });
-
-          const [created] = await fetchProducts({ productId });
-          res.status(201).json(created);
-        } catch (error) {
-          await cleanupUploadedFiles(req.files ?? []);
-          console.error("[API CREATE PRODUCT ERRO]", error);
-          if (isDuplicateEntryError(error)) {
-            return res.status(409).json({ error: "Slug do produto já está em uso" });
-          }
-          const status = Number.isInteger(error.status) ? error.status : 500;
-          res.status(status).json({ error: error.message ?? "Erro ao criar produto" });
-        }
-      }
+      async (req, res) => handleProductMutation(req, res)
     );
 
     app.put(
@@ -1367,92 +1285,12 @@ async function findAdminByEmail(email) {
       upload.array("mediaFiles"),
       async (req, res) => {
         const { productId } = req.params;
-
-        try {
-          const [existing] = await fetchProducts({ productId });
-          if (!existing) {
-            return res.status(404).json({ error: "Produto não encontrado" });
-          }
-
-          const payload = parseProductPayload(req.body);
-          if (!payload?.name || !payload?.slug || !payload?.categoryId) {
-            return res
-              .status(400)
-              .json({ error: "Campos obrigatórios ausentes: nome, slug ou categoria" });
-          }
-
-          const resolvedMedia = resolveMediaPayload(payload.media ?? [], req.files ?? []);
-          const specs = payload?.specs ?? {};
-
-          await withTransaction(async (connection) => {
-            await connection.query(
-              `UPDATE products
-                 SET slug = ?,
-                     category_id = ?,
-                     name = ?,
-                     summary = ?,
-                     description = ?,
-                     designer = ?,
-                     dimensions = ?,
-                     light_source = ?,
-                     lead_time = ?,
-                     warranty = ?
-               WHERE id = ?`,
-              [
-                payload.slug,
-                payload.categoryId,
-                payload.name,
-                normalizeText(payload.summary),
-                normalizeText(payload.description),
-                normalizeText(specs.designer),
-                normalizeText(specs.dimensions),
-                normalizeText(specs.lightSource),
-                normalizeText(specs.leadTime),
-                normalizeText(specs.warranty),
-                productId,
-              ]
-            );
-
-            await replaceProductMedia(connection, productId, resolvedMedia);
-            await replaceSimpleList(
-              connection,
-              "product_materials",
-              "name",
-              productId,
-              normalizeList(specs.materials)
-            );
-            await replaceSimpleList(
-              connection,
-              "product_finish_options",
-              "name",
-              productId,
-              normalizeList(specs.finishOptions)
-            );
-            await replaceSimpleList(
-              connection,
-              "product_customizations",
-              "description",
-              productId,
-              normalizeList(specs.customization)
-            );
-          });
-
-          const removedMedia = (existing.media ?? []).filter(
-            (media) => !resolvedMedia.some((item) => item.src === media.src)
-          );
-          await deleteUploadsForMedia(removedMedia);
-
-          const [updated] = await fetchProducts({ productId });
-          res.json(updated);
-        } catch (error) {
-          await cleanupUploadedFiles(req.files ?? []);
-          console.error("[API UPDATE PRODUCT ERRO]", error);
-          if (isDuplicateEntryError(error)) {
-            return res.status(409).json({ error: "Slug do produto já está em uso" });
-          }
-          const status = Number.isInteger(error.status) ? error.status : 500;
-          res.status(status).json({ error: error.message ?? "Erro ao atualizar produto" });
+        const [existing] = await fetchProducts({ productId });
+        if (!existing) {
+          return res.status(404).json({ error: "Produto não encontrado" });
         }
+
+        return handleProductMutation(req, res, { productId, existingProduct: existing });
       }
     );
 
